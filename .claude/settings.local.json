@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/laragon/www/saas log --oneline)",
+      "Bash(mysql -u ruben -pREDACTED -h 127.0.0.1 -P 3306 -e \"SHOW DATABASES;\")"
+    ]
+  }
+}
