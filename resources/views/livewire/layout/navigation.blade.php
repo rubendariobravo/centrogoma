@@ -38,7 +38,7 @@ new class extends Component
         </a>
 
         {{-- VENTAS --}}
-        <div x-data="{ open: {{ $isGroup(['ventas*','clientes*','recibos*']) ? 'true' : 'true' }} }">
+        <div x-data="{ open: {{ $isGroup(['ventas*','clientes*','recibos*','presupuestos*']) ? 'true' : 'true' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
                 <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
@@ -54,6 +54,9 @@ new class extends Component
             <div x-show="open" class="mt-0.5 space-y-0.5 pl-4">
                 <a href="{{ route('ventas') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('ventas*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Ventas
+                </a>
+                <a href="{{ route('presupuestos') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('presupuestos*') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Presupuestos
                 </a>
                 <a href="{{ route('clientes') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('clientes*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Clientes
@@ -122,7 +125,7 @@ new class extends Component
         </div>
 
         {{-- CAJA & FINANZAS --}}
-        <div x-data="{ open: {{ $isGroup(['cajas*','cc-clientes*','cc-proveedores*']) ? 'true' : 'false' }} }">
+        <div x-data="{ open: {{ $isGroup(['cajas*','cc-clientes*','cc-proveedores*','cheques*']) ? 'true' : 'false' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
                 <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
@@ -144,6 +147,9 @@ new class extends Component
                 </a>
                 <a href="{{ route('cc-proveedores') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('cc-proveedores*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> CC Proveedores
+                </a>
+                <a href="{{ route('cheques') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('cheques*') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Cheques
                 </a>
             </div>
         </div>

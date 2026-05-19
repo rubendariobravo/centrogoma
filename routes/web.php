@@ -31,6 +31,10 @@ use App\Livewire\Roles\Index as RolesIndex;
 use App\Livewire\Config\Index as ConfigIndex;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\ListasController;
+use App\Http\Controllers\PresupuestoController;
+use App\Livewire\Presupuestos\Index as PresupuestosIndex;
+use App\Livewire\Presupuestos\Form as PresupuestosForm;
+use App\Livewire\Cheques\Index as ChequesIndex;
 use App\Livewire\Auditorias\Index as AuditoriasIndex;
 use App\Livewire\Ayuda\Index as AyudaIndex;
 
@@ -39,6 +43,12 @@ Route::redirect('/', 'login');
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('dashboard', Dashboard::class)->name('dashboard');
+
+    // Presupuestos
+    Route::get('presupuestos', PresupuestosIndex::class)->name('presupuestos');
+    Route::get('presupuestos/create', PresupuestosForm::class)->name('presupuestos.create');
+    Route::get('presupuestos/{presupuesto}/edit', PresupuestosForm::class)->name('presupuestos.edit');
+    Route::get('presupuestos/{presupuesto}/pdf', [PresupuestoController::class, 'pdf'])->name('presupuestos.pdf');
 
     // Ventas
     Route::get('ventas', VentasIndex::class)->name('ventas');
@@ -79,6 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Caja y Finanzas
     Route::get('cajas', CajasIndex::class)->name('cajas');
+    Route::get('cheques', ChequesIndex::class)->name('cheques');
     Route::get('cc-clientes', CcClientesIndex::class)->name('cc-clientes');
     Route::get('cc-proveedores', CcProveedoresIndex::class)->name('cc-proveedores');
 
