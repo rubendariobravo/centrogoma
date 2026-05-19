@@ -129,42 +129,22 @@
                 </div>
             </div>
 
-            {{-- Tipo de venta --}}
+            {{-- Presentación --}}
             <div class="bg-white rounded-xl shadow-sm p-5">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">Tipo de venta</h2>
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Presentación</h2>
                 <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Modalidad <span class="text-red-500">*</span></label>
-                        <div class="grid grid-cols-2 gap-2">
-                            <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors {{ $tipo_venta === 'CAJA' ? 'border-slate-900 bg-slate-50' : 'border-[#DDE1E7] hover:bg-[#E9ECF0]' }}">
-                                <input wire:model.live="tipo_venta" type="radio" value="CAJA" class="text-slate-900">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">📦 Caja</p>
-                                    <p class="text-xs text-gray-500">Por unidades</p>
-                                </div>
-                            </label>
-                            <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors {{ $tipo_venta === 'PESO' ? 'border-slate-900 bg-slate-50' : 'border-[#DDE1E7] hover:bg-[#E9ECF0]' }}">
-                                <input wire:model.live="tipo_venta" type="radio" value="PESO" class="text-slate-900">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">⚖ Peso</p>
-                                    <p class="text-xs text-gray-500">Por kilogramos</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Unidad de medida</label>
                         <select wire:model="unidad_medida"
                                 class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
                             <option value="unidad">Unidad</option>
-                            <option value="cajón">Cajón</option>
+                            <option value="juego">Juego</option>
+                            <option value="par">Par</option>
                             <option value="kg">Kilogramo (kg)</option>
-                            <option value="gramo">Gramo</option>
-                            <option value="litro">Litro</option>
+                            <option value="metro">Metro</option>
                             <option value="docena">Docena</option>
                         </select>
                     </div>
-                    @if($tipo_venta === 'CAJA')
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Cant. por caja</label>
@@ -172,12 +152,12 @@
                                    class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Merma %</label>
-                            <input wire:model="perdida" type="number" step="0.1" min="0" max="100"
-                                   class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Presentación caja</label>
+                            <input wire:model="presentacion_caja" type="text"
+                                   class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
+                                   placeholder="ej: Caja x 12">
                         </div>
                     </div>
-                    @endif
                 </div>
             </div>
 
@@ -197,11 +177,6 @@
                                    class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Stock minorista</label>
-                        <input wire:model="stock_minorista" type="number" step="0.001" min="0"
-                               class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
-                    </div>
                     <div class="space-y-2 pt-1">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input wire:model="modifica_stock" type="checkbox" class="rounded text-slate-900">
@@ -210,10 +185,6 @@
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input wire:model="art_mayorista" type="checkbox" class="rounded text-slate-900">
                             <span class="text-sm text-gray-700">Es artículo mayorista</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input wire:model="acepta_subrubro" type="checkbox" class="rounded text-slate-900">
-                            <span class="text-sm text-gray-700">Acepta sub-artículos (producción)</span>
                         </label>
                     </div>
                 </div>
@@ -241,7 +212,7 @@
                             </span>
                         </h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            Define el precio según la cantidad {{ $tipo_venta === 'PESO' ? 'en kg' : 'de unidades/cajas' }} del pedido.
+                            Define el precio según la cantidad de unidades/cajas del pedido.
                             <a href="{{ route('listas-precios') }}" wire:navigate class="text-slate-700 hover:text-slate-900 underline ml-1">Gestionar otras listas</a>
                         </p>
                     </div>
@@ -269,8 +240,8 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-[#E9ECF0] text-xs text-gray-500 border-y border-[#DDE1E7]">
-                                <th class="px-3 py-2 text-left font-medium">Desde {{ $tipo_venta === 'PESO' ? '(kg)' : '(unid)' }}</th>
-                                <th class="px-3 py-2 text-left font-medium">Hasta {{ $tipo_venta === 'PESO' ? '(kg)' : '(unid)' }}</th>
+                                <th class="px-3 py-2 text-left font-medium">Desde (unid)</th>
+                                <th class="px-3 py-2 text-left font-medium">Hasta (unid)</th>
                                 <th class="px-3 py-2 text-left font-medium">
                                     Precio {{ $verNetosTramos ? 'neto' : 'final' }}
                                 </th>
@@ -342,7 +313,7 @@
                             <input x-model.number="previewCantidad"
                                    type="number" step="0.001" min="0"
                                    class="w-24 px-2 py-1.5 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                            <span class="text-xs text-gray-400">{{ $tipo_venta === 'PESO' ? 'kg' : 'unid' }}</span>
+                            <span class="text-xs text-gray-400">unid</span>
                         </div>
                         <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/>

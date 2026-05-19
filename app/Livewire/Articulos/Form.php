@@ -26,8 +26,7 @@ class Form extends Component
     public ?int $marca_id = null;
     public ?int $rubro_id = null;
 
-    // Tipo de venta
-    public string $tipo_venta    = 'CAJA';
+    // Unidad / presentación
     public string $unidad_medida = 'unidad';
     public string $presentacion_caja = '';
     public ?float $cantidad_caja = null;
@@ -37,12 +36,9 @@ class Form extends Component
 
     // Stock
     public float $stock          = 0;
-    public float $stock_minorista = 0;
     public float $stock_minimo   = 0;
     public bool  $modifica_stock = true;
     public bool  $art_mayorista  = false;
-    public bool  $acepta_subrubro = false;
-    public float $perdida        = 3;
 
     // IVA y precios legacy
     public float  $alicuota_iva    = 21;
@@ -88,7 +84,6 @@ class Form extends Component
             'descripcion'      => 'required|string|max:250',
             'rubro_id'         => 'nullable|exists:rubros,id',
             'marca_id'         => 'nullable|exists:marcas,id',
-            'tipo_venta'       => 'required|in:CAJA,PESO',
             'unidad_medida'    => 'required|string|max:20',
             'alicuota_iva'     => 'required|numeric|in:0,10.5,21,27',
             'stock'            => 'required|numeric',
@@ -125,17 +120,13 @@ class Form extends Component
             $this->imagen_url      = $art->imagen_url ?? '';
             $this->marca_id        = $art->marca_id;
             $this->rubro_id        = $art->rubro_id;
-            $this->tipo_venta      = $art->tipo_venta;
             $this->unidad_medida   = $art->unidad_medida;
             $this->presentacion_caja = $art->presentacion_caja ?? '';
             $this->cantidad_caja   = $art->cantidad_caja;
             $this->stock           = (float) $art->stock;
-            $this->stock_minorista = (float) $art->stock_minorista;
             $this->stock_minimo    = (float) $art->stock_minimo;
             $this->modifica_stock  = (bool) $art->modifica_stock;
             $this->art_mayorista   = (bool) $art->art_mayorista;
-            $this->acepta_subrubro = (bool) $art->acepta_subrubro;
-            $this->perdida         = (float) $art->perdida;
             $this->alicuota_iva    = (float) $art->alicuota_iva;
             $this->precio_costo    = (float) $art->precio_costo;
             $this->margen          = (float) $art->margen;
@@ -273,17 +264,13 @@ class Form extends Component
             'imagen_url'        => $this->imagen_url ?: null,
             'marca_id'          => $this->marca_id,
             'rubro_id'          => $this->rubro_id,
-            'tipo_venta'        => $this->tipo_venta,
             'unidad_medida'     => $this->unidad_medida,
             'presentacion_caja' => $this->presentacion_caja ?: null,
             'cantidad_caja'     => $this->cantidad_caja,
             'stock'             => $this->stock,
-            'stock_minorista'   => $this->stock_minorista,
             'stock_minimo'      => $this->stock_minimo,
             'modifica_stock'    => $this->modifica_stock,
             'art_mayorista'     => $this->art_mayorista,
-            'acepta_subrubro'   => $this->acepta_subrubro,
-            'perdida'           => $this->perdida,
             'alicuota_iva'      => $this->alicuota_iva,
             'precio_costo'      => $this->precio_costo,
             'margen'            => $this->margen,

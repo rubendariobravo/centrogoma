@@ -21,8 +21,8 @@ new class extends Component
 
     {{-- Logo --}}
     <div class="flex items-center gap-3 px-4 py-4 bg-slate-950 border-b border-slate-800 flex-shrink-0">
-        <div class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-slate-900 font-black text-sm">A</div>
-        <span class="font-semibold text-white text-sm leading-tight">Sistema Avícola</span>
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">CG</div>
+        <span class="font-semibold text-white text-sm leading-tight">Centro Goma</span>
     </div>
 
     {{-- Navegación --}}
@@ -148,32 +148,23 @@ new class extends Component
             </div>
         </div>
 
-        {{-- PRODUCCIÓN --}}
-        <div x-data="{ open: {{ $isGroup(['produccion*','remitos*','pesadas*','descartes*','empleados*']) ? 'true' : 'false' }} }">
+        {{-- LOGÍSTICA --}}
+        <div x-data="{ open: {{ $isGroup(['remitos*','empleados*']) ? 'true' : 'false' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
                 <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 17H5a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3m-7 14l4-4m0 0l4-4m-4 4V10"/>
                     </svg>
-                    Producción
+                    Logística
                 </span>
                 <svg class="w-3.5 h-3.5 transition-transform duration-150" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
             <div x-show="open" class="mt-0.5 space-y-0.5 pl-4">
-                <a href="{{ route('produccion') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('produccion*') }}">
-                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Producciones
-                </a>
                 <a href="{{ route('remitos') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('remitos*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Remitos
-                </a>
-                <a href="{{ route('pesadas') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('pesadas*') }}">
-                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Pesadas
-                </a>
-                <a href="{{ route('descartes') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('descartes*') }}">
-                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Descartes
                 </a>
                 <a href="{{ route('empleados') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('empleados*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Empleados

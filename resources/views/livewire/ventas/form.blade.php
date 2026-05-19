@@ -1,5 +1,5 @@
 @php
-$defaultItem = [['articulo_id' => null, 'descripcion' => '', 'tipo_venta' => 'CAJA', 'unidad_medida' => 'unidad', 'cantidad' => 1, 'precio' => 0, 'alicuota_iva' => 21, 'descuento' => 0, 'subtotal' => 0]];
+$defaultItem = [['articulo_id' => null, 'descripcion' => '', 'unidad_medida' => 'unidad', 'cantidad' => 1, 'precio' => 0, 'alicuota_iva' => 21, 'descuento' => 0, 'subtotal' => 0]];
 $defaultClienteData = ['razon_social' => '', 'percepcion_iva' => false, 'porcentaje_iibb' => 0, 'es_mayorista' => false, 'tipoiva_codigo' => '99'];
 @endphp
 <div>
@@ -594,7 +594,6 @@ function ventaForm(config) {
             // Pre-llenado optimista para UX inmediata
             this.items[index].articulo_id = art.id;
             this.items[index].descripcion = art.descripcion;
-            this.items[index].tipo_venta = art.tipo_venta;
             this.items[index].unidad_medida = art.unidad_medida;
             this.items[index].alicuota_iva = art.alicuota_iva;
             this.items[index]._search = art.codigo + ' — ' + art.descripcion;

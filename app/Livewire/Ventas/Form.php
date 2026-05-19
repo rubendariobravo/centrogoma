@@ -111,7 +111,7 @@ class Form extends Component
             'articulo_id'    => $d->articulo_id,
             'rubro_id'       => $d->articulo?->rubro_id,
             'descripcion'    => $d->descripcion ?? $d->articulo?->descripcion ?? '',
-            'tipo_venta'     => $d->tipo_venta ?? 'CAJA',
+
             'unidad_medida'  => $d->articulo?->unidad_medida ?? 'unidad',
             'cantidad'       => (float) $d->cantidad,
             'precio'         => (float) $d->precio_unitario,
@@ -242,7 +242,7 @@ class Form extends Component
             'articulo_id'   => null,
             'rubro_id'      => null,
             'descripcion'   => '',
-            'tipo_venta'    => 'CAJA',
+
             'unidad_medida' => 'unidad',
             'cantidad'      => 1,
             'precio'        => 0,
@@ -321,7 +321,7 @@ class Form extends Component
             'articulo_id'   => $articulo->id,
             'rubro_id'      => $articulo->rubro_id,
             'descripcion'   => $articulo->descripcion,
-            'tipo_venta'    => $articulo->tipo_venta,
+
             'unidad_medida' => $articulo->unidad_medida,
             'alicuota_iva'  => (float) $articulo->alicuota_iva,
         ]);
@@ -687,7 +687,6 @@ class Form extends Component
                 'venta_id'          => $venta->id,
                 'articulo_id'       => $art->id,
                 'descripcion'       => $art->descripcion,
-                'tipo_venta'        => $art->tipo_venta,
                 'cantidad'          => $item['cantidad'],
                 'precio_unitario'   => $item['precio'],
                 'alicuota_iva'      => $item['alicuota_iva'],
@@ -858,7 +857,6 @@ class Form extends Component
                 'id'             => $a->id,
                 'codigo'         => $a->codigo,
                 'descripcion'    => $a->descripcion,
-                'tipo_venta'     => $a->tipo_venta,
                 'unidad_medida'  => $a->unidad_medida,
                 'alicuota_iva'   => (float) $a->alicuota_iva,
             ])

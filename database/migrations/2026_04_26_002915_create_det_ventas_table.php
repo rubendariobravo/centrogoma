@@ -18,7 +18,6 @@ return new class extends Migration
             $table->double('descuento')->default(0);
             $table->double('subtotal')->default(0);
             $table->double('subtotal_iva')->default(0);
-            $table->enum('tipo_venta', ['CAJA', 'PESO'])->default('CAJA');
             $table->string('descripcion', 250)->nullable();
             $table->timestamps();
         });

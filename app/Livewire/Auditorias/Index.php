@@ -32,13 +32,10 @@ class Index extends Component
         'App\\Models\\Caja'       => ['label' => 'Caja',           'modulo' => 'cajas'],
         'App\\Models\\Recibo'     => ['label' => 'Recibo',         'modulo' => 'ventas'],
         'App\\Models\\OrdenPago'  => ['label' => 'Orden de Pago',  'modulo' => 'compras'],
-        'App\\Models\\Produccion' => ['label' => 'Producción',     'modulo' => 'produccion'],
-        'App\\Models\\Descarte'   => ['label' => 'Descarte',       'modulo' => 'produccion'],
-        'App\\Models\\Pesada'     => ['label' => 'Pesada',         'modulo' => 'produccion'],
-        'App\\Models\\Remito'     => ['label' => 'Remito',         'modulo' => 'produccion'],
+        'App\\Models\\Remito'     => ['label' => 'Remito',         'modulo' => 'logistica'],
         'App\\Models\\Rubro'      => ['label' => 'Rubro',          'modulo' => 'articulos'],
         'App\\Models\\Marca'      => ['label' => 'Marca',          'modulo' => 'articulos'],
-        'App\\Models\\Empleado'   => ['label' => 'Empleado',       'modulo' => 'produccion'],
+        'App\\Models\\Empleado'   => ['label' => 'Empleado',       'modulo' => 'logistica'],
         'App\\Models\\User'       => ['label' => 'Usuario',        'modulo' => 'admin'],
     ];
 
@@ -47,7 +44,7 @@ class Index extends Component
         'compras'    => 'Compras',
         'articulos'  => 'Artículos',
         'cajas'      => 'Caja y Finanzas',
-        'produccion' => 'Producción',
+        'logistica'  => 'Logística',
         'admin'      => 'Administración',
     ];
 
@@ -98,7 +95,6 @@ class Index extends Component
         'codigo'            => 'Código',
         'marca_id'          => 'Marca',
         'rubro_id'          => 'Rubro',
-        'tipo_venta'        => 'Tipo Venta',
         'unidad_medida'     => 'Unidad Medida',
         'precio_unitario'   => 'Precio Unitario',
         'stock_minimo'      => 'Stock Mínimo',

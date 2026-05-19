@@ -23,19 +23,14 @@ use App\Livewire\Listas\Index as ListasIndex;
 use App\Livewire\Listas\Form as ListasForm;
 use App\Livewire\Listas\Precios as ListasPrecios;
 use App\Livewire\Empleados\Index as EmpleadosIndex;
-use App\Livewire\Produccion\Index as ProduccionIndex;
 use App\Livewire\Remitos\Index as RemitosIndex;
-use App\Livewire\Pesadas\Index as PesadasIndex;
-use App\Livewire\Descartes\Index as DescartesIndex;
 use App\Livewire\CcClientes\Index as CcClientesIndex;
 use App\Livewire\CcProveedores\Index as CcProveedoresIndex;
 use App\Livewire\Usuarios\Index as UsuariosIndex;
 use App\Livewire\Roles\Index as RolesIndex;
 use App\Livewire\Config\Index as ConfigIndex;
 use App\Http\Controllers\VentaController;
-use App\Http\Controllers\ProduccionController;
 use App\Http\Controllers\ListasController;
-use App\Livewire\Produccion\Detalle as ProduccionDetalle;
 use App\Livewire\Auditorias\Index as AuditoriasIndex;
 use App\Livewire\Ayuda\Index as AyudaIndex;
 
@@ -87,13 +82,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('cc-clientes', CcClientesIndex::class)->name('cc-clientes');
     Route::get('cc-proveedores', CcProveedoresIndex::class)->name('cc-proveedores');
 
-    // Producción
-    Route::get('produccion', ProduccionIndex::class)->name('produccion');
-    Route::get('produccion/{produccion}', ProduccionDetalle::class)->name('produccion.detalle');
-    Route::get('produccion/{produccion}/pdf', [ProduccionController::class, 'pdf'])->name('produccion.pdf');
+    // Logística
     Route::get('remitos', RemitosIndex::class)->name('remitos');
-    Route::get('pesadas', PesadasIndex::class)->name('pesadas');
-    Route::get('descartes', DescartesIndex::class)->name('descartes');
     Route::get('empleados', EmpleadosIndex::class)->name('empleados');
 
     // Administración

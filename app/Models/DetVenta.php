@@ -10,8 +10,7 @@ class DetVenta extends Model
 
     protected $fillable = [
         'venta_id', 'articulo_id', 'cantidad', 'precio_unitario',
-        'alicuota_iva', 'descuento', 'subtotal', 'subtotal_iva',
-        'tipo_venta', 'descripcion',
+        'alicuota_iva', 'descuento', 'subtotal', 'subtotal_iva', 'descripcion',
         // Trazabilidad del calculo de precio
         'lista_precio_id', 'tramo_aplicado_id', 'regla_aplicada',
         'precio_motor', 'precio_manual',

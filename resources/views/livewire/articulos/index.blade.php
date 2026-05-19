@@ -107,13 +107,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-gray-600 text-xs">{{ $art->rubro?->descripcion ?? '—' }}</td>
-                        <td class="px-4 py-3 text-center">
-                            @if($art->tipo_venta === 'PESO')
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">⚖ Peso</span>
-                            @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">📦 Caja</span>
-                            @endif
-                        </td>
+                        <td class="px-4 py-3 text-center text-xs text-gray-500">{{ $art->unidad_medida }}</td>
                         <td class="px-4 py-3 text-right">
                             @php $stockBajo = $art->stock_minimo > 0 && $art->stock <= $art->stock_minimo; @endphp
                             <span class="font-medium {{ $stockBajo ? 'text-red-600' : 'text-gray-900' }}">

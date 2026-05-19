@@ -10,15 +10,15 @@ class Articulo extends Model implements Auditable
 {
     use SoftDeletes, \OwenIt\Auditing\Auditable;
 
-    protected array $auditExclude = ['stock', 'stock_minorista', 'precio_costo', 'fecha_modif'];
+    protected array $auditExclude = ['stock', 'precio_costo', 'fecha_modif'];
 
     protected $fillable = [
         'marca_id', 'rubro_id', 'codigo', 'descripcion', 'imagen_url',
-        'tipo_venta', 'unidad_medida', 'presentacion', 'presentacion_caja',
+        'unidad_medida', 'presentacion', 'presentacion_caja',
         'cantidad_caja', 'precio_costo', 'precio_unitario', 'precio_unitario_caja',
-        'stock', 'stock_minorista', 'stock_minimo', 'stock_inicial',
-        'alicuota_iva', 'margen', 'bonificacion', 'perdida',
-        'modifica_stock', 'art_mayorista', 'acepta_subrubro', 'estado', 'fecha_modif',
+        'stock', 'stock_minimo', 'stock_inicial',
+        'alicuota_iva', 'margen', 'bonificacion',
+        'modifica_stock', 'art_mayorista', 'estado', 'fecha_modif',
     ];
 
     protected $casts = [
@@ -27,16 +27,13 @@ class Articulo extends Model implements Auditable
         'precio_unitario'     => 'float',
         'precio_unitario_caja'=> 'float',
         'stock'               => 'float',
-        'stock_minorista'     => 'float',
         'stock_minimo'        => 'float',
         'stock_inicial'       => 'float',
         'alicuota_iva'        => 'decimal:2',
         'margen'              => 'float',
         'bonificacion'        => 'float',
-        'perdida'             => 'float',
         'modifica_stock'      => 'boolean',
         'art_mayorista'       => 'boolean',
-        'acepta_subrubro'     => 'boolean',
         'fecha_modif'         => 'date',
     ];
 
@@ -60,16 +57,6 @@ class Articulo extends Model implements Auditable
         return $this->hasMany(ArticuloPrecio::class)->where('activo', true)->orderBy('orden')->orderBy('cantidad_desde');
     }
 
-    public function subArticulos()
-    {
-        return $this->hasMany(SubArticulo::class, 'articulo_padre_id');
-    }
-
-    public function productosDe()
-    {
-        return $this->hasMany(SubArticulo::class, 'articulo_hijo_id');
-    }
-
     public function movimientos()
     {
         return $this->hasMany(MovimientoArticulo::class)->orderByDesc('fecha')->orderByDesc('id');
@@ -90,10 +77,8 @@ class Articulo extends Model implements Auditable
         return $this->stock > 0;
     }
 
-    public function getPrecioPorCantidad(float $cantidad, bool $esMinorista = false): float
+    public function getPrecioPorCantidad(float $cantidad): float
     {
-        $stock = $esMinorista ? $this->stock_minorista : $this->stock;
-
         $tier = $this->preciosActivos()
             ->where('cantidad_desde', '<=', $cantidad)
             ->where(function ($q) use ($cantidad) {

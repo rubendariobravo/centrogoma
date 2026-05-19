@@ -16,7 +16,6 @@ class Index extends Component
     public string $search = '';
     public string $filterRubro = '';
     public string $filterEstado = 'A';
-    public string $filterTipo = '';
     public string $sortBy = 'descripcion';
     public string $sortDir = 'asc';
     public ?int $confirmingDelete = null;
@@ -25,7 +24,6 @@ class Index extends Component
         'search'       => ['except' => ''],
         'filterRubro'  => ['except' => ''],
         'filterEstado' => ['except' => 'A'],
-        'filterTipo'   => ['except' => ''],
     ];
 
     public function updatingSearch(): void
@@ -77,7 +75,6 @@ class Index extends Component
             }))
             ->when($this->filterRubro, fn ($q) => $q->where('rubro_id', $this->filterRubro))
             ->when($this->filterEstado, fn ($q) => $q->where('estado', $this->filterEstado))
-            ->when($this->filterTipo, fn ($q) => $q->where('tipo_venta', $this->filterTipo))
             ->orderBy($this->sortBy, $this->sortDir)
             ->paginate(20);
 
