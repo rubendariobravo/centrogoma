@@ -42,15 +42,16 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (63 tests, 169 assertions — todos pasan)
+# Correr tests (70 tests, 210 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
 php artisan test --filter="Pricing|Listas|Clientes|FormPriceEngine"
 ```
 
-> ⚠️ **Los tests usan `RefreshDatabase` contra MySQL** (puerto 3307).  
-> Cada vez que corre el suite completo, borra la BD. Volver a correr seeders para restaurar datos.
+> ⚠️ **Los tests usan `RefreshDatabase` contra la BD `centrogoma_test`** (puerto 3307), definida en
+> `phpunit.xml` (sus `<env>` pisan al `.env`). No apuntarla nunca a `centrogoma` (borra los datos
+> importados) ni a `avicola` (BD de la otra app, a la que apuntaba originalmente).
 
 ---
 
@@ -238,48 +239,54 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 
 ## Módulo Cheques
 
-Implementado en mayo 2026. Gestión completa de cartera de cheques recibidos y emitidos.
+Modelo portado de avícola (migración `2026_07_01_000002_reconciliar_cheques_modelo_avicola`, que
+descartó las tablas viejas recibido/emitido — estaban vacías). Lógica centralizada en
+`App\Services\Cheque\ChequeService`.
 
 ### Tablas
 
 | Tabla | Descripción |
 |-------|-------------|
-| `cheques` | Cheque con tipo (recibido/emitido), estado, datos bancarios, FKs a origen |
-| `movimientos_cheque` | Audit trail de cada transición de estado |
+| `cheques` | `tipo` (`tercero`/`propio`), estado, banco (`bancos`), librador, `es_echeq`, `es_diferido`, `caja_id` (banco), `caja_origen_id`, FKs blandas a `recibo_id` / `venta_id` / `orden_pago_id` |
+| `cheque_movimientos` | Audit trail (`ChequeMovimiento`) de cada transición |
 
-### Estado del cheque
+### Estados — `Cheque::TRANSICIONES` es la fuente de verdad
 
-| Tipo | Estado inicial | Transiciones válidas |
-|------|---------------|----------------------|
-| Recibido | `en_cartera` | → `depositado` → `cobrado` / `rechazado`; → `endosado`; → `anulado` |
-| Emitido | `pendiente` | → `cobrado` / `rechazado` / `anulado` |
+| Tipo | Inicial | Transiciones |
+|------|---------|--------------|
+| Tercero | `cartera` | → `depositado` → `acreditado` / `rechazado`; → `aplicado` (endoso); → `vendido`; → `anulado`; `rechazado` → `cartera` |
+| Propio | `emitido` | → `debitado` / `rechazado` / `anulado`; `rechazado` → `emitido` |
 
-### FKs de origen (en tabla `cheques`)
+### Impacto en caja (ChequeService)
 
-- `recibo_id` — cheque recibido como forma de pago en un Recibo
-- `pago_venta_id` — cheque recibido en una Venta
-- `orden_pago_id` — cheque emitido en una Orden de Pago
-- `pago_ventas.cheque_id` — FK inversa para navegar desde el pago al cheque
+- `registrarRecibido()` / `registrarEmitido()` — alta + movimiento `recepcion`/`emision`. **No tocan caja.**
+- `acreditar()` — egreso en `caja_origen` + ingreso en caja banco (la plata aparece recién acá).
+- `debitar()` — egreso de la caja banco (cheque propio).
+- `rechazar()` — revierte caja si estaba acreditado y **reabre la deuda del cliente** (CC).
+- `anular()` — revierte caja si estaba acreditado/debitado.
 
-### Integración automática
+### Integración automática (`forma_pago = 'cheque'`)
 
-Cuando se registra un documento con `forma_pago = 'cheque'`, el cheque se **crea automáticamente** con el vínculo correcto:
+| Documento | Crea | Vínculo |
+|-----------|------|---------|
+| `Recibos\Form` | tercero / `cartera` | `recibo_id` |
+| `Ventas\Form` (pago Alpine) | tercero / `cartera` | `venta_id` |
+| `OrdenPago\Form` | propio / `emitido` (sin egreso de caja hasta el débito) | `orden_pago_id` |
 
-| Documento | Formulario | Crea cheque tipo | Vinculado por |
-|-----------|-----------|-----------------|---------------|
-| Recibo | `Recibos\Form` | `recibido` / `en_cartera` | `recibo_id` |
-| Venta | `Ventas\Form` (por pago Alpine) | `recibido` / `en_cartera` | `pago_venta_id` |
-| Orden de Pago | `OrdenPago\Form` | `emitido` / `pendiente` | `orden_pago_id` |
+Compras **no** admite cheque como forma de pago: se carga en CC y se paga con una Orden de Pago.
 
-En todos los casos se crea también el primer `MovimientoCheque` (`recepcion` o `emision`).
+---
 
-### Modelos clave
+## Caja y Compras — services
 
-```php
-Cheque::isTerminal(): bool          // cobrado|rechazado|endosado|anulado
-Cheque::movimientos()               // hasMany MovimientoCheque
-MovimientoCheque::label_tipo_mov    // accessor legible
-```
+- `App\Services\Caja\CajaService` — único punto de escritura del libro `movimiento_cajas`:
+  `registrarMovimiento()` (asienta + incrementa contador cacheado en `cajas`), `revertirMovimientosDe()`,
+  `transferir()`. Usado por Ventas, Recibos, Órdenes de Pago, Compras y ChequeService.
+- `App\Services\Compra\CompraService` — `procesar()` aplica stock (+`movimientos_articulos`),
+  `precio_costo` (si `ajuste_automatico`) y CC proveedor, o egreso de caja si es de contado;
+  `revertir()` lo deshace (no revierte costo). `Compras\Form` registra y procesa en una transacción;
+  `Compras\Index` anula con motivo (avisa si hay OPs aplicadas: lo pagado queda como crédito).
+- Formas de pago: tabla `formas_pago` (`FormaPago::esCuentaCorriente()`, `esEfectivo()`, `activosParaSelect()`).
 
 ---
 
@@ -516,10 +523,11 @@ tests/Unit/Pricing/PriceEngineTest.php          — 15 unit tests
 tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
+tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 63 tests, 169 assertions — todos pasan.** Tests usan `RefreshDatabase` contra MySQL puerto 3307.
+**Total: 70 tests, 210 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
 
 ---
 
@@ -539,6 +547,10 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_05_18_000005_create_movimientos_cheque_table` | Audit trail de cheques |
 | `2026_05_18_000006_add_cheque_id_to_pago_ventas` | FK inversa PagoVenta → Cheque |
 | `2026_05_31_000001_add_legacy_id_to_main_tables` | `legacy_id` (UNIQUE) en `rubros`, `articulos`, `clientes`, `proveedores` para importación idempotente |
+| `2026_06_29_000001..6` | Libro de caja: columnas en `cajas` (tipo, contadores), `formas_pago`, `movimiento_cajas`, `transferencias_caja`, `categorias_gasto`, `gastos` |
+| `2026_07_01_000001_create_bancos_table` | Catálogo de bancos |
+| `2026_07_01_000002_reconciliar_cheques_modelo_avicola` | Recrea `cheques` + `cheque_movimientos` con el modelo de avícola; quita `pago_ventas.cheque_id` |
+| `2026_09_29_000001_add_procesada_to_compras_table` | `forma_pago`, `procesada`, `procesada_at`, `procesada_por` en `compras` |
 
 ---
 
@@ -587,21 +599,19 @@ Desde `/listas-precios/{lista}/precios`:
 
 ### Inmediatos
 - **Saldos CC legacy** — importar `cccliente` / `ccproveedor` como saldo inicial en `cc_clientes` / `cc_proveedores` (extender `centrogoma:importar`)
-- **Limpiar `\Log::error()`** en `Ventas\Form.php` — son trazas de debug, no deben ir a producción
 
 ### Funcionalidades a portar desde `avicola` (ver `docs/ANALISIS_AVICOLA.md`)
 App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:
-- **Services/Caja/CajaService** — apertura/cierre de caja, arqueo, movimientos
-- **Services/Cheque/ChequeService** — lógica de cheques centralizada (CentroGoma la tiene inline en Livewire)
-- **Services/Compra/CompraService** — registración de compras + impacto en stock/CC proveedor
-- **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService)
-- **Anticipos**, **Bancos**, **Gastos**, **Estadisticas** (módulos Livewire completos)
+- ✅ CajaService, ChequeService, CompraService (portados)
+- **UI de caja** — `Cajas\Index` usa solo los contadores viejos; falta detalle `/cajas/{caja}` con libro + arqueo, cajas general/banco y transferencias
+- **Gastos** (`/gastos`, modelos ya creados), **Bancos** (`/bancos`, tabla ya sembrada), **Anticipos**, **Estadisticas**
+- **Anular venta / recibo / OP** revirtiendo caja y CC vía `CajaService::revertirMovimientosDe()`
+- **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último
 
 ### Migración datos legacy — ✅ completado
 - `categorias` (201), `productos` (7.187), `clientes` (6.647), `proveedores` (251) importados vía `centrogoma:importar`
 
 ### Backlog técnico
-- **DB test isolation** — `.env.testing` apuntando a una BD separada para no borrar datos de desarrollo al correr tests
 - **Vista readOnly con cheque vinculado** — en detalle de Recibo/OP/Venta, mostrar enlace al cheque creado y su estado actual
 - **Dashboard con KPIs reales** — ventas del día, cheques por vencer, estado de caja, saldo CC
 - **Fase 6 pricing** — recargo por entrega, descuento por pago en efectivo sobre el total

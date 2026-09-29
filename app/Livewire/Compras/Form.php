@@ -4,12 +4,13 @@ namespace App\Livewire\Compras;
 
 use App\Models\Articulo;
 use App\Models\Caja;
-use App\Models\CcProveedor;
 use App\Models\Compra;
 use App\Models\DetCompra;
-use App\Models\MovimientoArticulo;
+use App\Models\FormaPago;
 use App\Models\Proveedor;
+use App\Services\Compra\CompraService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -29,7 +30,7 @@ class Form extends Component
     // Ítems
     public array $items = [];
 
-    // Caja abierta (opcional en compras)
+    // Caja desde la que se paga cuando la compra es de contado (no cuenta corriente)
     public ?int $cajaId = null;
 
     // Modo lectura (ya guardada)
@@ -39,17 +40,43 @@ class Form extends Component
     {
         $this->fecha = now()->toDateString();
 
-        $caja = Caja::where('estado', 'abierta')
-            ->where('user_id', Auth::id())
-            ->latest()->first();
-
-        $this->cajaId = $caja?->id;
+        // Caja de pago: diaria del usuario + cajas generales/bancos abiertas.
+        $disponibles  = $this->cajasDisponibles();
+        $this->cajaId = $disponibles->firstWhere('tipo', 'diaria')?->id ?? $disponibles->first()?->id;
 
         if ($compra) {
             $this->cargarCompra($compra);
         } else {
             $this->addItem();
         }
+    }
+
+    /** Cajas abiertas que el usuario puede usar para pagar (diaria propia + generales/bancos). */
+    public function cajasDisponibles()
+    {
+        return Caja::with('user')
+            ->where('estado', 'abierta')
+            ->where(function ($q) {
+                $q->where(fn ($d) => $d->where('tipo', 'diaria')->where('user_id', Auth::id()))
+                  ->orWhereIn('tipo', ['general', 'banco']);
+            })
+            ->orderBy('tipo')
+            ->get();
+    }
+
+    /** True si la forma de pago elegida es de contado (paga ahora, descuenta de caja). */
+    public function esPagoContado(): bool
+    {
+        return ! FormaPago::esCuentaCorriente($this->forma_pago);
+    }
+
+    /**
+     * Formas de pago admitidas en compras. Cheque queda afuera: un cheque propio se
+     * emite desde una Orden de Pago (carga la compra en CC y pagala con OP).
+     */
+    private function formasPago()
+    {
+        return FormaPago::activosParaSelect()->reject(fn ($f) => $f->codigo === 'cheque')->values();
     }
 
     private function cargarCompra(int $id): void
@@ -60,6 +87,8 @@ class Form extends Component
         $this->fecha        = $c->fecha->toDateString();
         $this->nro_factura  = $c->nro_factura ?? '';
         $this->letra        = $c->letra ?? 'B';
+        $this->forma_pago   = $c->forma_pago ?? 'cuenta_corriente';
+        $this->cajaId       = $c->caja_id;
         $this->observacion  = $c->observacion ?? '';
         $this->readOnly     = true;
 
@@ -108,6 +137,7 @@ class Form extends Component
 
         $this->validate([
             'proveedor_id'       => 'required|exists:proveedores,id',
+            'forma_pago'         => ['required', 'in:' . $this->formasPago()->pluck('codigo')->implode(',')],
             'fecha'              => 'required|date',
             'items'              => 'required|array|min:1',
             'items.*.articulo_id'=> 'required|exists:articulos,id',
@@ -119,87 +149,64 @@ class Form extends Component
             'items.*.cantidad.min'         => 'La cantidad debe ser mayor a 0.',
         ]);
 
-        $neto_21   = (float) ($totales['neto_21'] ?? 0);
-        $neto_10_5 = (float) ($totales['neto_10_5'] ?? 0);
+        $esContado = $this->esPagoContado();
+        if ($esContado) {
+            $this->validate(
+                ['cajaId' => 'required|exists:cajas,id'],
+                ['cajaId.required' => 'Seleccione la caja desde la que se paga.']
+            );
+            if (! Caja::find($this->cajaId)?->estaAbierta()) {
+                $this->addError('cajaId', 'La caja seleccionada no está abierta.');
+                return;
+            }
+        }
+
+        $neto_21     = (float) ($totales['neto_21'] ?? 0);
+        $neto_10_5   = (float) ($totales['neto_10_5'] ?? 0);
         $neto_exento = (float) ($totales['neto_exento'] ?? 0);
-        $iva_21    = (float) ($totales['iva_21'] ?? 0);
-        $iva_10_5  = (float) ($totales['iva_10_5'] ?? 0);
-        $total     = (float) ($totales['total'] ?? 0);
-        $neto      = $neto_21 + $neto_10_5 + $neto_exento;
+        $iva_21      = (float) ($totales['iva_21'] ?? 0);
+        $iva_10_5    = (float) ($totales['iva_10_5'] ?? 0);
+        $total       = (float) ($totales['total'] ?? 0);
+        $neto        = $neto_21 + $neto_10_5 + $neto_exento;
 
-        $compra = Compra::create([
-            'proveedor_id'   => $this->proveedor_id,
-            'user_id'        => Auth::id(),
-            'caja_id'        => $this->cajaId,
-            'fecha'          => $this->fecha,
-            'nro_factura'    => $this->nro_factura ?: null,
-            'letra'          => $this->letra,
-            'neto'           => $neto,
-            'neto_21'        => $neto_21,
-            'neto_10_5'      => $neto_10_5,
-            'monto_iva21'    => $iva_21,
-            'monto_iva10_5'  => $iva_10_5,
-            'total'          => $total,
-            'saldo'          => $this->forma_pago === 'cuenta_corriente' ? $total : 0,
-            'estado'         => $this->forma_pago === 'cuenta_corriente' ? 'P' : 'C',
-            'observacion'    => $this->observacion ?: null,
-        ]);
-
-        foreach ($this->items as $item) {
-            $art = Articulo::find($item['articulo_id']);
-            if (! $art) continue;
-
-            $subtotalNeto = round((float)$item['cantidad'] * (float)$item['precio'], 2);
-            $subtotalIva  = round($subtotalNeto * ((float)$item['alicuota_iva'] / 100), 2);
-
-            DetCompra::create([
-                'compra_id'      => $compra->id,
-                'articulo_id'    => $art->id,
-                'cantidad'       => $item['cantidad'],
-                'precio_unitario'=> $item['precio'],
-                'alicuota_iva'   => $item['alicuota_iva'],
-                'subtotal'       => $subtotalNeto,
-                'subtotal_iva'   => $subtotalIva,
+        DB::transaction(function () use ($esContado, $neto, $neto_21, $neto_10_5, $iva_21, $iva_10_5, $total) {
+            $compra = Compra::create([
+                'proveedor_id'  => $this->proveedor_id,
+                'user_id'       => Auth::id(),
+                'caja_id'       => $esContado ? $this->cajaId : null,
+                'fecha'         => $this->fecha,
+                'nro_factura'   => $this->nro_factura ?: null,
+                'letra'         => $this->letra,
+                'forma_pago'    => $this->forma_pago,
+                'neto'          => $neto,
+                'neto_21'       => $neto_21,
+                'neto_10_5'     => $neto_10_5,
+                'monto_iva21'   => $iva_21,
+                'monto_iva10_5' => $iva_10_5,
+                'total'         => $total,
+                'saldo'         => 0,
+                'estado'        => 'P',
+                'observacion'   => $this->observacion ?: null,
             ]);
 
-            if ($art->modifica_stock) {
-                $art->increment('stock', $item['cantidad']);
+            foreach ($this->items as $item) {
+                $subtotalNeto = round((float) $item['cantidad'] * (float) $item['precio'], 2);
+                $subtotalIva  = round($subtotalNeto * ((float) $item['alicuota_iva'] / 100), 2);
 
-                MovimientoArticulo::create([
-                    'articulo_id'     => $art->id,
-                    'tipo'            => 'entrada',
+                DetCompra::create([
+                    'compra_id'       => $compra->id,
+                    'articulo_id'     => $item['articulo_id'],
                     'cantidad'        => $item['cantidad'],
-                    'fecha'           => $this->fecha,
-                    'referencia_type' => Compra::class,
-                    'referencia_id'   => $compra->id,
-                    'observacion'     => "Compra #{$compra->id}" . ($this->nro_factura ? " - Fac. {$this->letra}-{$this->nro_factura}" : ''),
+                    'precio_unitario' => $item['precio'],
+                    'alicuota_iva'    => $item['alicuota_iva'],
+                    'subtotal'        => $subtotalNeto,
+                    'subtotal_iva'    => $subtotalIva,
                 ]);
             }
 
-            // Actualizar precio_costo del artículo
-            $art->update(['precio_costo' => $item['precio']]);
-        }
-
-        // Actualizar saldo del proveedor y crear movimiento CC
-        if ($this->forma_pago === 'cuenta_corriente') {
-            $proveedor = Proveedor::find($this->proveedor_id);
-            if ($proveedor) {
-                $saldoAnterior = (float) $proveedor->saldo;
-                $nuevoSaldo    = round($saldoAnterior + $total, 2);
-                $proveedor->update(['saldo' => $nuevoSaldo]);
-
-                CcProveedor::create([
-                    'proveedor_id'   => $this->proveedor_id,
-                    'fecha'          => $this->fecha,
-                    'concepto'       => "Compra #{$compra->id}" . ($this->nro_factura ? " - Fac. {$this->letra}-{$this->nro_factura}" : ''),
-                    'debe'           => $total,
-                    'haber'          => 0,
-                    'saldo'          => $nuevoSaldo,
-                    'referencia_type'=> Compra::class,
-                    'referencia_id'  => $compra->id,
-                ]);
-            }
-        }
+            // Stock, costo y CC proveedor / egreso de caja
+            app(CompraService::class)->procesar($compra);
+        });
 
         session()->flash('success', "Compra registrada correctamente.");
         $this->redirect(route('compras'), navigate: true);
@@ -224,6 +231,8 @@ class Form extends Component
         return view('livewire.compras.form', [
             'articulosData' => $articulosData,
             'proveedores'   => Proveedor::where('estado', 'A')->orderBy('razon_social')->get(),
+            'formasPago'    => $this->formasPago(),
+            'cajas'         => $this->readOnly ? collect() : $this->cajasDisponibles(),
         ]);
     }
 }

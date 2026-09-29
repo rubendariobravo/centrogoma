@@ -101,14 +101,13 @@ window._initialCompraItems = {{ Js::from($items ?: [['articulo_id'=>null,'descri
                         {{ $readOnly ? 'Estado' : 'Forma de pago' }}
                     </label>
                     @if(! $readOnly)
-                    <select wire:model="forma_pago"
+                    <select wire:model.live="forma_pago"
                             class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                        <option value="cuenta_corriente">Cuenta corriente</option>
-                        <option value="efectivo">Efectivo</option>
-                        <option value="transferencia">Transferencia</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="otro">Otro</option>
+                        @foreach($formasPago as $fp)
+                            <option value="{{ $fp->codigo }}">{{ $fp->descripcion }}</option>
+                        @endforeach
                     </select>
+                    @error('forma_pago') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     @else
                     <p class="px-3 py-2 text-sm text-gray-700">
                         @if($compraId)
@@ -118,6 +117,25 @@ window._initialCompraItems = {{ Js::from($items ?: [['articulo_id'=>null,'descri
                     </p>
                     @endif
                 </div>
+
+                @if(! $readOnly && $this->esPagoContado())
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Caja de pago</label>
+                    @if($cajas->isEmpty())
+                        <p class="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg">No hay cajas abiertas. Abra una caja o cargue la compra en cuenta corriente.</p>
+                    @else
+                        <select wire:model="cajaId"
+                                class="w-full px-3 py-2 text-sm border {{ $errors->has('cajaId') ? 'border-red-400' : 'border-[#DDE1E7]' }} rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
+                            <option value="">— Seleccionar caja —</option>
+                            @foreach($cajas as $caja)
+                                <option value="{{ $caja->id }}">{{ $caja->nombreEtiqueta() }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-400">El total se descuenta de esta caja al registrar la compra.</p>
+                    @endif
+                    @error('cajaId') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+                @endif
             </div>
         </div>
 

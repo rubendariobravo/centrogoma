@@ -141,6 +141,14 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
                                 </a>
+                                @if($compra->estado !== 'A')
+                                <button type="button" wire:click="confirmarAnular({{ $compra->id }})"
+                                        class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Anular">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -161,4 +169,38 @@
         </div>
         @endif
     </div>
+
+    {{-- Modal anular --}}
+    @if($anularId)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:keydown.escape.window="cancelarAnular">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 class="text-base font-semibold text-gray-900">Anular compra #{{ $anularId }}</h2>
+            <p class="mt-1 text-sm text-gray-500">Se revierte el stock y la cuenta corriente del proveedor (o el egreso de caja si fue de contado). El costo de los artículos no se modifica.</p>
+
+            @if(count($anularPagos))
+            <div class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
+                <p class="font-medium">Esta compra ya tiene pagos aplicados (${{ $anularPagado }}):</p>
+                <ul class="mt-1 list-disc list-inside">
+                    @foreach($anularPagos as $p)
+                        <li>OP #{{ $p['nro'] }} del {{ $p['fecha'] }} — ${{ $p['monto'] }}</li>
+                    @endforeach
+                </ul>
+                <p class="mt-1">Ese importe quedará como crédito a favor con el proveedor.</p>
+            </div>
+            @endif
+
+            <label class="block mt-4 text-xs font-medium text-gray-600 mb-1">Motivo</label>
+            <textarea wire:model="motivoAnulacion" rows="2"
+                      class="w-full px-3 py-2 text-sm border {{ $errors->has('motivoAnulacion') ? 'border-red-400' : 'border-[#DDE1E7]' }} rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"></textarea>
+            @error('motivoAnulacion') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+            <div class="mt-5 flex justify-end gap-2">
+                <button type="button" wire:click="cancelarAnular"
+                        class="px-4 py-2 text-sm text-gray-700 bg-white border border-[#DDE1E7] rounded-lg hover:bg-gray-50">Cancelar</button>
+                <button type="button" wire:click="anular" wire:loading.attr="disabled"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Anular compra</button>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
