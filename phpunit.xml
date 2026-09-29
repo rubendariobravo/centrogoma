@@ -26,7 +26,7 @@
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3307"/>
-        <env name="DB_DATABASE" value="avicola"/>
+        <env name="DB_DATABASE" value="centrogoma_test"/>
         <env name="DB_USERNAME" value="ruben"/>
         <env name="DB_PASSWORD" value="REDACTED"/>
         <env name="DB_URL" value=""/>
