@@ -49,6 +49,16 @@ class Index extends Component
         $this->confirmingAnular = null;
     }
 
+    public function convertirAVenta(int $id): void
+    {
+        $presupuesto = Presupuesto::findOrFail($id);
+        if (! in_array($presupuesto->estado, ['A', 'V'])) {
+            session()->flash('error', 'Solo se pueden convertir presupuestos activos o vencidos.');
+            return;
+        }
+        $this->redirect(route('ventas.create') . '?presupuesto_id=' . $id, navigate: true);
+    }
+
     public function render()
     {
         $presupuestos = Presupuesto::query()

@@ -78,6 +78,16 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
         </div>
     </div>
 
+    {{-- Banner: origen presupuesto --}}
+    @if($presupuestoOrigenId && ! $readOnly)
+    <div class="mb-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg px-4 py-3">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        <span>Pre-cargado desde <strong>Presupuesto #{{ $presupuestoOrigenId }}</strong>. Al registrar la venta, el presupuesto quedará marcado como <em>Facturado</em>.</span>
+    </div>
+    @endif
+
     {{-- Formulario --}}
     <div class="space-y-4">
 
@@ -349,8 +359,10 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                     </div>
                     <div class="space-y-2">
                         <template x-for="(pago, index) in pagos" :key="index">
+                            <div>
                             <div class="grid grid-cols-12 gap-2 items-center">
                                 <select x-model="pago.forma_pago"
+                                        x-on:change="initCheque(pago)"
                                         x-on:keydown.enter.prevent="focusPagoField(index, 'monto')"
                                         :data-pago-row="index"
                                         data-pago-field="forma_pago"
@@ -383,6 +395,66 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                     </svg>
                                 </button>
+                            </div>
+                            {{-- Datos del cheque recibido --}}
+                            <template x-if="pago.forma_pago === 'cheque'">
+                                <div class="mt-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <p class="text-xs font-semibold text-blue-700 mb-2">Datos del cheque recibido</p>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Banco *</label>
+                                            <select x-model.number="pago.cheque.banco_id"
+                                                    class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
+                                                <option value="">Seleccionar...</option>
+                                                @foreach($bancos as $banco)
+                                                    <option value="{{ $banco->id }}">{{ $banco->descripcion }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Serie</label>
+                                            <input type="text" x-model="pago.cheque.serie" maxlength="10"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                   placeholder="0001">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Nº cheque *</label>
+                                            <input type="text" x-model="pago.cheque.nro" maxlength="30"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                   placeholder="00001234">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">CUIT librador</label>
+                                            <input type="text" x-model="pago.cheque.librador_cuit" maxlength="13"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                   placeholder="20-12345678-9">
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="block text-xs text-gray-500 mb-0.5">Librador *</label>
+                                            <input type="text" x-model="pago.cheque.librador_nombre" maxlength="150"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                   placeholder="Nombre del librador">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fecha emisión</label>
+                                            <input type="date" x-model="pago.cheque.fecha_emision"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fecha cobro *</label>
+                                            <input type="date" x-model="pago.cheque.fecha_pago"
+                                                   class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="inline-flex items-center gap-2 text-xs text-gray-500">
+                                                <input type="checkbox" x-model="pago.cheque.es_echeq"
+                                                       class="rounded border-gray-300 text-slate-900 focus:ring-slate-900">
+                                                Es e-Cheq (electrónico)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
                             </div>
                         </template>
                     </div>
@@ -544,7 +616,7 @@ function ventaForm(config) {
         clienteData: config.clienteData,
         descuentoGeneral: config.descuentoGeneral,
         articulosData: config.articulosData || [],
-        pagos: [{ forma_pago: 'efectivo', monto: '', _autoMonto: true }],
+        pagos: [{ forma_pago: 'efectivo', monto: '', _autoMonto: true, cheque: null }],
         wire: null,
 
         // Toggle de visualizacion de precios: false = ver finales (con IVA),
@@ -771,9 +843,16 @@ function ventaForm(config) {
             }
         },
 
+        initCheque(pago) {
+            if (pago.forma_pago === 'cheque' && !pago.cheque) {
+                const today = new Date().toISOString().slice(0,10);
+                const d30 = new Date(Date.now() + 30*86400000).toISOString().slice(0,10);
+                pago.cheque = { banco_id: '', serie: '', nro: '', librador_nombre: '', librador_cuit: '', fecha_emision: today, fecha_pago: d30, es_echeq: false };
+            }
+        },
         addPago() {
             this.pagos.forEach(p => p._autoMonto = false);
-            this.pagos.push({ forma_pago: 'efectivo', monto: '', _autoMonto: false });
+            this.pagos.push({ forma_pago: 'efectivo', monto: '', _autoMonto: false, cheque: null });
         },
 
         removePago(index) {

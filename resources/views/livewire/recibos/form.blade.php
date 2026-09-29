@@ -308,6 +308,70 @@
                     </select>
                 </div>
 
+                {{-- Datos del cheque (visible solo si forma_pago = cheque) --}}
+                @if($forma_pago === 'cheque')
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                    <p class="text-xs font-semibold text-blue-700">Datos del cheque recibido</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Banco <span class="text-red-500">*</span></label>
+                            <select wire:model="cheque_banco_id"
+                                    class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none @error('cheque_banco_id') border-red-400 @enderror">
+                                <option value="">Seleccionar...</option>
+                                @foreach($bancos as $banco)
+                                    <option value="{{ $banco->id }}">{{ $banco->descripcion }}</option>
+                                @endforeach
+                            </select>
+                            @error('cheque_banco_id') <p class="mt-0.5 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Serie</label>
+                            <input wire:model="cheque_serie" type="text" maxlength="10"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                   placeholder="0001">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Nº cheque <span class="text-red-500">*</span></label>
+                            <input wire:model="cheque_nro" type="text" maxlength="30"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none @error('cheque_nro') border-red-400 @enderror"
+                                   placeholder="00001234">
+                            @error('cheque_nro') <p class="mt-0.5 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">CUIT librador</label>
+                            <input wire:model="cheque_librador_cuit" type="text" maxlength="13"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                   placeholder="20-12345678-9">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Librador <span class="text-red-500">*</span></label>
+                            <input wire:model="cheque_librador_nombre" type="text" maxlength="150"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none @error('cheque_librador_nombre') border-red-400 @enderror"
+                                   placeholder="Nombre del librador">
+                            @error('cheque_librador_nombre') <p class="mt-0.5 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Fecha emisión</label>
+                            <input wire:model="cheque_fecha_emision" type="date"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de cobro <span class="text-red-500">*</span></label>
+                            <input wire:model="cheque_fecha_pago" type="date"
+                                   class="w-full px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none @error('cheque_fecha_pago') border-red-400 @enderror">
+                            @error('cheque_fecha_pago') <p class="mt-0.5 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="col-span-2">
+                            <label class="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
+                                <input wire:model="cheque_es_echeq" type="checkbox"
+                                       class="rounded border-gray-300 text-slate-900 focus:ring-slate-900">
+                                Es e-Cheq (electrónico)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 {{-- Referencia --}}
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Referencia / Comprobante</label>

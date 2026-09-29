@@ -13,7 +13,7 @@ class Cliente extends Model implements Auditable
     protected array $auditExclude = ['saldo'];
 
     protected $fillable = [
-        'razon_social', 'nombre_fantasia', 'cuit', 'dni', 'tipoiva_id', 'empleado_id',
+        'legacy_id', 'razon_social', 'nombre_fantasia', 'cuit', 'dni', 'tipoiva_id', 'empleado_id',
         'telefono', 'celular', 'email', 'domicilio', 'localidad', 'provincia',
         'codigo_postal', 'lista_precio_id', 'bonificacion', 'limite_credito', 'saldo',
         'porcentaje_iibb', 'percepcion_iva', 'es_mayorista', 'estado', 'observacion',

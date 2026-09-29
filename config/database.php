@@ -65,16 +65,16 @@ return [
         ],
 
         'centro_goma_legacy' => [
-            'driver' => 'mysql',
-            'host' => env('LEGACY_DB_HOST', '127.0.0.1'),
-            'port' => env('LEGACY_DB_PORT', '3307'),
-            'database' => env('LEGACY_DB_DATABASE', 'centro_goma'),
-            'username' => env('LEGACY_DB_USERNAME', 'ruben'),
-            'password' => env('LEGACY_DB_PASSWORD', ''),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => false,
+            'driver'    => 'mysql',
+            'host'      => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port'      => env('LEGACY_DB_PORT', '3306'),
+            'database'  => env('LEGACY_DB_DATABASE', 'centro_goma'),
+            'username'  => env('LEGACY_DB_USERNAME', 'ruben'),
+            'password'  => env('LEGACY_DB_PASSWORD', ''),
+            'charset'   => 'utf8',           // BD legacy usa latin1 — utf8 translitea correctamente
+            'collation' => 'utf8_general_ci',
+            'prefix'    => '',
+            'strict'    => false,
         ],
 
         'mariadb' => [

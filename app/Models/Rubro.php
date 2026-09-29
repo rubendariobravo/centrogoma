@@ -8,7 +8,7 @@ use OwenIt\Auditing\Contracts\Auditable;
 class Rubro extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
-    protected $fillable = ['descripcion', 'alicuota_iva', 'es_mayorista', 'estado'];
+    protected $fillable = ['legacy_id', 'descripcion', 'alicuota_iva', 'es_mayorista', 'estado'];
 
     protected $casts = [
         'alicuota_iva' => 'decimal:2',

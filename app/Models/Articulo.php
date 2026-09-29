@@ -13,7 +13,7 @@ class Articulo extends Model implements Auditable
     protected array $auditExclude = ['stock', 'precio_costo', 'fecha_modif'];
 
     protected $fillable = [
-        'marca_id', 'rubro_id', 'codigo', 'descripcion', 'imagen_url',
+        'legacy_id', 'marca_id', 'rubro_id', 'codigo', 'descripcion', 'imagen_url',
         'unidad_medida', 'presentacion', 'presentacion_caja',
         'cantidad_caja', 'precio_costo', 'precio_unitario', 'precio_unitario_caja',
         'stock', 'stock_minimo', 'stock_inicial',

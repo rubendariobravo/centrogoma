@@ -15,7 +15,7 @@ class Proveedor extends Model implements Auditable
     protected $table = 'proveedores';
 
     protected $fillable = [
-        'razon_social', 'nombre_fantasia', 'cuit', 'telefono', 'celular',
+        'legacy_id', 'razon_social', 'nombre_fantasia', 'cuit', 'telefono', 'celular',
         'email', 'domicilio', 'localidad', 'provincia', 'codigo_postal',
         'contacto', 'saldo', 'estado', 'observacion',
     ];

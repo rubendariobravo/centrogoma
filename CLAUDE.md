@@ -1,30 +1,33 @@
-# CLAUDE.md
+# CLAUDE.md — CentroGoma ERP
 
-This file provides guidance to Claude Code when working with this repository.
-
-## Project Overview
-
-**Avicola** is a Laravel 12 ERP for a poultry/meat wholesale business (client: Avisur).  
-Stack: Laravel 12 · Livewire 3 (class-based) · Alpine.js · Tailwind CSS · MySQL · DomPDF · Spatie Permission · owen-it/laravel-auditing.
-
-**Local URL:** `http://localhost/avicola`  
-**Admin user:** rubendario.bravo@gmail.com / 12345678 (role: super-admin)
+Guía para Claude Code al trabajar en este repositorio.
 
 ---
 
-## Development Commands
+## Contexto del proyecto
+
+**CentroGoma** es un ERP web desarrollado en Laravel 12 para reemplazar un sistema legacy escrito en **Delphi XE5**.  
+La app es una **refactorización** — se tomó como base la app `Avicola` (desarrollada en paralelo para otro cliente), se eliminaron todos los módulos específicos de ese negocio (Produccion, Pesadas, Descartes, SubArticulos) y se adaptó para CentroGoma.
+
+**Stack:** Laravel 12 · Livewire 3 (class-based) · Alpine.js · Tailwind CSS · MySQL · DomPDF · Spatie Permission · owen-it/laravel-auditing
+
+| | |
+|---|---|
+| **URL local** | `http://centrogoma.test` |
+| **Admin** | `rubendario.bravo@gmail.com` / `12345678` (role: `super-admin`) |
+| **BD nueva** | `centrogoma` — MySQL puerto **3307** |
+| **BD legacy** | `centro_goma` — MySQL puerto **3306** (read-only, Delphi XE5) |
+| **Sistema legacy** | `H:\Desarrollo\centrogoma24` (Delphi XE5, solo lectura) |
+
+---
+
+## Comandos de desarrollo
 
 ```bash
-# Fresh DB + all seeders (wipes data)
+# Fresh DB + seeders base (borra todo)
 php artisan migrate:fresh --seed
 
-# Seed only real article/price data (after migrate:fresh --seed)
-php artisan db:seed --class=PreciosFrangoExcelSeeder
-
-# Seed clients (production-safe, idempotent)
-php artisan db:seed --class=ClientesAvisurSeeder
-
-# Recreate admin user (after RefreshDatabase wipes it)
+# Recrear usuario admin (luego de RefreshDatabase)
 php artisan tinker --execute="
 \$u = App\Models\User::firstOrCreate(
     ['email' => 'rubendario.bravo@gmail.com'],
@@ -36,61 +39,147 @@ if (!\$u->hasRole('super-admin')) \$u->assignRole(\$r);
 echo 'OK: #'.\$u->id;
 "
 
-# Create public symlink for logo uploads (run once per environment)
+# Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Run tests
+# Correr tests (63 tests, 169 assertions — todos pasan)
 php artisan test
 
-# Target specific test suites
+# Filtrar suites específicas
 php artisan test --filter="Pricing|Listas|Clientes|FormPriceEngine"
 ```
 
-> ⚠️ **Tests use `RefreshDatabase` against MySQL.** `phpunit.xml` is configured with `DB_CONNECTION=mysql` / port 3307.  
-> Every time the full suite runs it wipes the DB. Re-run the seeders above to restore data.
+> ⚠️ **Los tests usan `RefreshDatabase` contra MySQL** (puerto 3307).  
+> Cada vez que corre el suite completo, borra la BD. Volver a correr seeders para restaurar datos.
 
 ---
 
-## Architecture
+## Base de datos legacy — conexión
+
+Configurada en `config/database.php` como `centro_goma_legacy`. Variables en `.env`:
+
+```env
+LEGACY_DB_HOST=127.0.0.1
+LEGACY_DB_PORT=3306        # Puerto estándar MySQL — instancia distinta de la nueva
+LEGACY_DB_DATABASE=centro_goma
+LEGACY_DB_USERNAME=ruben
+LEGACY_DB_PASSWORD=REDACTED
+```
+
+**Uso:**
+```php
+// Leer de la BD legacy (solo lectura)
+DB::connection('centro_goma_legacy')->table('cliente')->get();
+
+// En un modelo dedicado
+class LegacyCliente extends Model {
+    protected $connection = 'centro_goma_legacy';
+    protected $table = 'cliente';
+    public $timestamps = false;
+}
+```
+
+---
+
+## Plan de migración de datos legacy
+
+Tablas relevantes de `centro_goma` y su mapeo a la BD nueva:
+
+| Tabla legacy | Registros | Tabla nueva | Estado |
+|---|---|---|---|
+| `categoria` | 201 | `rubros` | ✅ Importado |
+| `producto` | 7.187 | `articulos` + `articulo_precios` | ✅ Importado |
+| `cliente` | 6.647 | `clientes` | ✅ Importado |
+| `proveedor` | 251 | `proveedores` | ✅ Importado |
+| `cccliente` | ~500K | `cc_clientes` (saldo inicial por cliente) | ⏳ Pendiente |
+| `ccproveedor` | — | `cc_proveedores` (saldo inicial por proveedor) | ⏳ Pendiente |
+
+### Comando `centrogoma:importar`
+
+Implementado en `app/Console/Commands/ImportarLegacy.php`.
+
+```bash
+php artisan centrogoma:importar [tabla] [--dry-run] [--force]
+# tabla: categorias | productos | clientes | proveedores  (omitir = todas, en orden)
+# --dry-run : muestra qué se haría sin escribir nada
+# --force   : sobrescribe registros ya importados (update por legacy_id)
+```
+
+**Idempotencia:** cada tabla nueva tiene una columna `legacy_id` (UNSIGNED INT, UNIQUE, nullable)
+agregada por la migración `2026_05_31_000001_add_legacy_id_to_main_tables`. El comando busca por
+`legacy_id`; sin `--force` salta los ya importados, con `--force` los actualiza.
+
+**Mapeos internos del comando:**
+- `tipoivaMap` — `id_tipoiva` legacy → `tipoiva.id` nuevo, resuelto por `codigo_afip` (robusto ante IDs distintos)
+- `rubroMap` — `id_categoria` legacy → `rubros.id` nuevo (vía `legacy_id`)
+- `localidadMap` — `id_localidad` legacy → texto de localidad (tabla `localidades`)
+
+**Criterios aplicados:**
+- Los precios de `producto` en Delphi son **FINALES (con IVA)** → se convierten a neto: `neto = venta / (1 + iva/100)` (4 decimales). Se crea un tramo único en la lista **default** (Minorista) en `articulo_precios`.
+- IVA del producto se normaliza a `{0, 10.5, 21}` (default 21 si es inválido).
+- Código de artículo vacío → `LEG-{id_producto}`.
+- **CUIT inválido** (clientes y proveedores) → se guarda `null` cuando: largo < 7 ó > 13, o todos los caracteres iguales (`00000…`, `IIIII…`). Regex: `/^(.)\1+$/`.
+- **CUIT duplicado** en proveedores (error de carga legacy: mismo CUIT en varias razones sociales) → se captura `QueryException 1062` y se reintenta guardando con CUIT `null` (warning, no error).
+
+### ⚠ Charset legacy — caracteres corruptos en origen
+
+La BD `centro_goma` declara `DEFAULT CHARSET=latin1`, pero **los caracteres especiales ya están
+corruptos en disco**: la Ñ/tildes fueron guardadas por el conector Delphi/MySQL antiguo como el byte
+`0x3F` (`?` ASCII). Ej: `CAÑOS` está almacenado como `CA?OS` (verificado con `HEX(descripcion)`).
+
+No hay charset de conexión que recupere un dato que nunca se guardó. La conexión `centro_goma_legacy`
+usa `charset: 'utf8'` (no `utf8mb4`) en `config/database.php`, que es lo correcto para latin1, pero
+los `?` ya presentes no se pueden revertir automáticamente. **Se importan tal cual; corregir
+manualmente** desde `/rubros`, `/articulos`, `/clientes` cuando se detecten.
+
+---
+
+## Arquitectura
 
 ### Frontend
 
-All UI is **Livewire 3 class-based** components — no separate SPA or REST API.
+Toda la UI es **Livewire 3 class-based** — sin SPA separada ni REST API.
 
-- `app/Livewire/<Domain>/` — component PHP classes
-- `resources/views/livewire/<domain>/` — Blade templates
+- `app/Livewire/<Dominio>/` — clases PHP de componentes
+- `resources/views/livewire/<dominio>/` — templates Blade
 
-Standard component pattern per domain:
-- `Index` — list/search with filters
-- `Form` — create + edit (receives `?int $id` in `mount()`)
+Patrón estándar por dominio:
+- `Index` — listado con filtros + paginación
+- `Form` — crear + editar (recibe `?int $id` en `mount()`)
 
-**Alpine.js** handles local reactive state (item rows in Ventas, dropdowns, etc.).  
-**Critical Alpine↔Livewire sync rule:** Alpine `addItem()` / `removeItem()` MUST call `await this.$wire.addItem()` / `await this.$wire.removeItem(index)` before `syncItems()`, otherwise Livewire's `$items` array gets out of sync and the next wire call silently drops rows.
+**Alpine.js** maneja estado reactivo local (filas de items en Ventas, dropdowns, etc.).
 
-### Database
+**Regla crítica Alpine↔Livewire:** `addItem()` / `removeItem()` DEBEN llamar `await this.$wire.addItem()` / `await this.$wire.removeItem(index)` **antes** de `syncItems()`, si no el array `$items` de Livewire se desincroniza y pierde filas silenciosamente.
 
-**MySQL** in all environments. Migrations in `database/migrations/`.  
-Config variables stored in `variable_entorno` table, read via `VariableEntorno::get($key, $default)`.
+### Base de datos
 
-### Permissions
+**MySQL** en todos los entornos. Migraciones en `database/migrations/`.  
+Variables de configuración en tabla `variable_entorno`, leídas vía `VariableEntorno::get($key, $default)`.
 
-`spatie/laravel-permission` — roles/permissions seeded via `RolesAndPermissionsSeeder`.
+### Permisos
 
-### PDF / Print
+`spatie/laravel-permission` — roles/permisos sembrados por `RolesAndPermissionsSeeder`.
 
-- `barryvdh/laravel-dompdf` for PDF generation
-- Views: `resources/views/ventas/pdf.blade.php` (A4), `resources/views/ventas/ticket.blade.php` (72mm thermal)
-- `VentaController::imprimir()` renders the selected template as HTML and injects `window.print()` + `onafterprint` redirect for browser-native printing
+### PDF / Impresión
+
+- `barryvdh/laravel-dompdf` para generación de PDF
+- Vistas: `resources/views/ventas/pdf.blade.php` (A4), `resources/views/ventas/ticket.blade.php` (ticket 72mm)
+- `VentaController::imprimir()` renderiza el template como HTML e inyecta `window.print()` + redirect `onafterprint`
 
 ---
 
-## Full Route Map
+## Mapa de rutas completo
 
-All routes are under `middleware(['auth', 'verified'])`.
+Todas las rutas bajo `middleware(['auth', 'verified'])`.
 
-| Route | Component / Controller | Name |
-|-------|----------------------|------|
+| Ruta | Componente / Controlador | Nombre |
+|------|--------------------------|--------|
 | `GET /dashboard` | `Dashboard` | `dashboard` |
+| **Presupuestos** | | |
+| `GET /presupuestos` | `Presupuestos\Index` | `presupuestos` |
+| `GET /presupuestos/create` | `Presupuestos\Form` | `presupuestos.create` |
+| `GET /presupuestos/{presupuesto}/edit` | `Presupuestos\Form` | `presupuestos.edit` |
+| `GET /presupuestos/{presupuesto}/pdf` | `PresupuestoController::pdf()` | `presupuestos.pdf` |
 | **Ventas** | | |
 | `GET /ventas` | `Ventas\Index` | `ventas` |
 | `GET /ventas/create` | `Ventas\Form` | `ventas.create` |
@@ -132,15 +221,11 @@ All routes are under `middleware(['auth', 'verified'])`.
 | `GET /listas-precios/{lista}/exportar-precios` | `ListasController::exportarPrecios()` | `listas-precios.exportar` |
 | **Caja y Finanzas** | | |
 | `GET /cajas` | `Cajas\Index` | `cajas` |
+| `GET /cheques` | `Cheques\Index` | `cheques` |
 | `GET /cc-clientes` | `CcClientes\Index` | `cc-clientes` |
 | `GET /cc-proveedores` | `CcProveedores\Index` | `cc-proveedores` |
-| **Producción** | | |
-| `GET /produccion` | `Produccion\Index` | `produccion` |
-| `GET /produccion/{produccion}` | `Produccion\Detalle` | `produccion.detalle` |
-| `GET /produccion/{produccion}/pdf` | `ProduccionController::pdf()` | `produccion.pdf` |
+| **Logística** | | |
 | `GET /remitos` | `Remitos\Index` | `remitos` |
-| `GET /pesadas` | `Pesadas\Index` | `pesadas` |
-| `GET /descartes` | `Descartes\Index` | `descartes` |
 | `GET /empleados` | `Empleados\Index` | `empleados` |
 | **Administración** | | |
 | `GET /usuarios` | `Usuarios\Index` | `usuarios` |
@@ -151,257 +236,178 @@ All routes are under `middleware(['auth', 'verified'])`.
 
 ---
 
-## Pricing Engine (implemented May 2026)
+## Módulo Cheques
 
-### Overview
+Implementado en mayo 2026. Gestión completa de cartera de cheques recibidos y emitidos.
 
-Multi-list pricing system with per-client overrides and tiered quantities (tramos).
+### Tablas
 
-### Key files
+| Tabla | Descripción |
+|-------|-------------|
+| `cheques` | Cheque con tipo (recibido/emitido), estado, datos bancarios, FKs a origen |
+| `movimientos_cheque` | Audit trail de cada transición de estado |
 
-| File | Purpose |
-|------|---------|
-| `app/Services/Pricing/PriceEngine.php` | Main engine — singleton via AppServiceProvider |
-| `app/Services/Pricing/CotizacionRequest.php` | Input DTO (incluye `cantidadTramo` para tramos grupales) |
-| `app/Services/Pricing/CotizacionResultado.php` | Output DTO with full audit trail |
-| `app/Services/Pricing/PasoDesglose.php` | Per-step audit entry |
-| `app/Support/Pricing.php` | Static helper: `Pricing::final($neto, $iva)` / `Pricing::neto($final, $iva)` |
-| `app/Models/ListaPrecio.php` | Price list model (`es_default`, `recargo_no_efectivo`, `descuento_efectivo`) |
-| `app/Models/ArticuloPrecio.php` | Tiered prices per article+list (`cantidad_desde`, `cantidad_hasta`, `precio`) |
-| `app/Models/ClientePrecio.php` | Per-client overrides (price, bonification, or list-by-rubro) |
+### Estado del cheque
 
-### `App\Support\Pricing` helper
+| Tipo | Estado inicial | Transiciones válidas |
+|------|---------------|----------------------|
+| Recibido | `en_cartera` | → `depositado` → `cobrado` / `rechazado`; → `endosado`; → `anulado` |
+| Emitido | `pendiente` | → `cobrado` / `rechazado` / `anulado` |
 
-```php
-// Neto → Final (con IVA)
-Pricing::final(float $neto, float $iva): float   // round($neto * (1 + $iva/100), 2)
+### FKs de origen (en tabla `cheques`)
 
-// Final → Neto (sin IVA)
-Pricing::neto(float $final, float $iva): float   // round($final / (1 + $iva/100), 2)
-```
+- `recibo_id` — cheque recibido como forma de pago en un Recibo
+- `pago_venta_id` — cheque recibido en una Venta
+- `orden_pago_id` — cheque emitido en una Orden de Pago
+- `pago_ventas.cheque_id` — FK inversa para navegar desde el pago al cheque
 
-Used in: `Articulos\Form`, `Listas\Precios`, `Clientes\Form` for display/edit conversion.  
-**DB always stores NET prices. This helper converts for presentation only.**
+### Integración automática
 
-### Price resolution pipeline
+Cuando se registra un documento con `forma_pago = 'cheque'`, el cheque se **crea automáticamente** con el vínculo correcto:
 
-1. Load client overrides (`precio_articulo` → `bonif_articulo` → `lista_rubro`)
-2. Resolve list: **`forzarListaId`** (operator override) → client rubro override → client's assigned list → system default
-3. Find matching tramo — uses `cantidadTramo` (group total) if provided, otherwise item's own `cantidad`
-4. Apply bonifications and payment surcharge
-5. Add IVA (stored prices are **net**; engine adds IVA at close)
+| Documento | Formulario | Crea cheque tipo | Vinculado por |
+|-----------|-----------|-----------------|---------------|
+| Recibo | `Recibos\Form` | `recibido` / `en_cartera` | `recibo_id` |
+| Venta | `Ventas\Form` (por pago Alpine) | `recibido` / `en_cartera` | `pago_venta_id` |
+| Orden de Pago | `OrdenPago\Form` | `emitido` / `pendiente` | `orden_pago_id` |
 
-### Group tier pricing (implemented May 2026)
+En todos los casos se crea también el primer `MovimientoCheque` (`recepcion` o `emision`).
 
-When multiple articles of the same **rubro + unidad_medida** are in the cart, their quantities are summed to determine the applicable tier for all of them. Each item's subtotal is still calculated from its own `cantidad`.
-
-**Example:** POL-BN-CJ (4 cajones) + POL-CR-CJ (3 cajones) → group total = 7 cajones → both use the 5+ tier price.
-
-**Grouping key:** `rubro_id + unidad_medida` (separates kg from cajones even within the same rubro).
-
-**`CotizacionRequest` field:** `cantidadTramo` — if > `cantidad`, PriceEngine adds a `tramo_grupo` step to the desglose audit trail.
-
-**`CotizacionRequest` field:** `forzarListaId` — if set, bypasses all list resolution (rubro override, client list, default) and uses this list directly. Bonifications still apply.
-
-**`Ventas\Form` helpers:**
-- `calcularCantidadGrupo(int $rubroId, string $unidad): float` — sums quantities across all items with same key
-- `recotizarGrupo(int $rubroId, string $unidad): void` — re-prices all non-manual items in the group
-
-All item events (article selection, quantity change, item removal, client change) trigger group re-pricing automatically.
-
-### Conventions
-
-- **Prices in DB are NET** (without IVA). Engine adds IVA at the end.
-- IVA rates per article rubro: Pollo/Cerdo → 10.5%, rest → 21%
-- Excel prices from client were **final (with IVA)** — the seeder divides by `(1 + iva/100)` before inserting
-- Tramos for by-kg products use kg as unit; tramos for by-box products use box count
-
-### Livewire Ventas\Form key methods
-
-- `seleccionarArticulo(int $index, int $articuloId, ?float $cantidad)` — loads article (including `rubro_id`), detects duplicates (sums qty), calls `recotizarGrupo()`
-- `actualizarCantidad(int $index, ?float $cantidad, bool $forzarRecotizar)` — re-prices group on qty change
-- `cotizarItem(int $index)` — calls PriceEngine with `cantidadTramo` + `forzarListaId` from component state
-- `calcularCantidadGrupo(int $rubroId, string $unidad): float` — sums quantities for group tier lookup
-- `recotizarGrupo(int $rubroId, string $unidad): void` — re-prices all non-manual items in the group
-- `marcarPrecioManual(int $index, float $precio)` — flags manual override, skips re-pricing
-- `restaurarPrecio(int $index)` — clears manual flag, re-prices via engine
-- `cambiarLista(int $listaId)` — sets `$listaIdForzada`, `$listaModificada = true`, re-prices all items; role-gated (super-admin, admin)
-- `restaurarLista()` — resets `$listaIdForzada` to client's assigned list (or system default), `$listaModificada = false`
-- `registrarVenta(array $payload)` — validates, re-prices all items with group totals + forced list (backend authority), persists
-- `updatedClienteId()` — resets `$listaIdForzada` to new client's list, re-prices all non-manual items
-- `addItem()` / `removeItem(int $index)` — wire-side array management; `removeItem` re-cotizes remaining group members (Alpine must await these before `syncItems()`)
-
-### Ventas\Form state structure
+### Modelos clave
 
 ```php
-// Item array structure (stored in $this->items[])
-[
-    'articulo_id'    => int,
-    'rubro_id'       => ?int,      // clave de agrupación para tramos grupales
-    'descripcion'    => string,
-    'tipo_venta'     => 'CAJA'|'PESO',
-    'unidad_medida'  => string,    // segunda clave de agrupación (e.g. 'cajón', 'kg')
-    'cantidad'       => float,
-    'precio'         => float,     // precio neto en DB
-    'alicuota_iva'   => float,     // 0, 10.5 o 21
-    'descuento'      => float,     // %
-    'subtotal'       => float,
-    'precio_manual'  => bool,      // true = no re-cotizar
-]
-
-// Selector de lista (encabezado del formulario)
-public ?int  $listaIdForzada  = null;  // null → motor resuelve; valor → lista forzada por operador
-public bool  $listaModificada = false; // badge visual "Cambiada"
-// Inicializado en mount() a la lista default; reset en updatedClienteId() a la lista del cliente.
-
-// clienteData structure
-[
-    'razon_social'    => string,
-    'percepcion_iva'  => bool,
-    'porcentaje_iibb' => float,    // ya en %, ej. 1.5
-    'es_mayorista'    => bool,
-    'tipoiva_codigo'  => string,   // '01'=RI, '05'=CF, '99'=default
-]
+Cheque::isTerminal(): bool          // cobrado|rechazado|endosado|anulado
+Cheque::movimientos()               // hasMany MovimientoCheque
+MovimientoCheque::label_tipo_mov    // accessor legible
 ```
 
-### Selector de lista en el formulario de venta (implemented May 2026)
+---
 
-Permite al operador usar una lista distinta a la asignada al cliente en una venta puntual.
+## Módulo Presupuestos
 
-**UX:** debajo del grid de campos del comprobante, siempre visible en modo edición.
+Implementado en mayo 2026.
+
+| Ruta | Componente |
+|------|-----------|
+| `GET /presupuestos` | `Presupuestos\Index` |
+| `GET /presupuestos/create` | `Presupuestos\Form` |
+| `GET /presupuestos/{id}/edit` | `Presupuestos\Form` |
+| `GET /presupuestos/{id}/pdf` | `PresupuestoController::pdf()` |
+
+**Estados:** `A` = Activo, `V` = Vencido (calculado por `fecha_vencimiento`), `F` = Facturado, `N` = Anulado.
+
+**Conversión a Venta:** botón "Convertir a Venta" en el Index (solo estados A/V).  
+- Redirige a `ventas/create?presupuesto_id={id}`
+- `Ventas\Form::mount()` detecta el query param y pre-carga cliente, lista e ítems
+- Al registrar la venta, el presupuesto pasa automáticamente a estado `F`
+
+El Form usa el **PriceEngine** igual que Ventas, con las mismas reglas de pricing.
+
+---
+
+## Motor de precios (PriceEngine)
+
+Sistema multi-lista con overrides por cliente y precios por tramos de cantidad.
+
+### Archivos clave
+
+| Archivo | Propósito |
+|---------|-----------|
+| `app/Services/Pricing/PriceEngine.php` | Motor principal — singleton via AppServiceProvider |
+| `app/Services/Pricing/CotizacionRequest.php` | DTO de entrada |
+| `app/Services/Pricing/CotizacionResultado.php` | DTO de salida con audit trail |
+| `app/Support/Pricing.php` | Helper estático: `Pricing::final($neto, $iva)` / `Pricing::neto($final, $iva)` |
+| `app/Models/ListaPrecio.php` | Lista de precios (`es_default`, `recargo_no_efectivo`, `descuento_efectivo`) |
+| `app/Models/ArticuloPrecio.php` | Precios por tramos (lista + rango de cantidad) |
+| `app/Models/ClientePrecio.php` | Overrides por cliente (precio fijo, bonif, lista por rubro) |
+
+### Helper `App\Support\Pricing`
+
+```php
+Pricing::final(float $neto, float $iva): float   // neto × (1 + iva/100), redondeado a 2 decimales
+Pricing::neto(float $final, float $iva): float   // final / (1 + iva/100), redondeado a 2 decimales
+```
+
+**Los precios en BD siempre son NETOS.** El helper convierte solo para presentación.
+
+### Pipeline de resolución de precio
+
+1. Cargar overrides del cliente (`precio_articulo` → `bonif_articulo` → `lista_rubro`)
+2. Resolver lista: `forzarListaId` (operador) → override rubro → lista del cliente → default del sistema
+3. Buscar tramo: usa `cantidadTramo` (total grupal) si es mayor que `cantidad` individual
+4. Aplicar bonificaciones y recargo por forma de pago
+5. Sumar IVA al final
+
+### Precios grupales por tramos
+
+Cuando hay múltiples artículos del mismo **rubro + unidad_medida** en el carrito, sus cantidades se suman para determinar el tramo aplicable a todos.
+
+- `calcularCantidadGrupo(rubroId, unidad)` — suma cantidades del grupo
+- `recotizarGrupo(rubroId, unidad)` — re-cotiza todos los items no-manuales del grupo
+
+### Overrides de cliente (`cliente_precios`)
+
+| `tipo` | Efecto |
+|--------|--------|
+| `precio_articulo` | Precio fijo para un artículo específico |
+| `bonif_articulo` | % de descuento para un artículo específico |
+| `lista_rubro` | Usar otra lista para todos los artículos de un rubro |
+
+### Selector de lista en Ventas
+
+Permite al operador forzar una lista distinta a la del cliente para una venta puntual.
 
 | Rol | Comportamiento |
 |-----|---------------|
-| `super-admin`, `admin` | Selector `<select>` editable; badge "Cambiada" + botón "Restaurar" si fue modificada |
-| Cualquier otro rol | Texto de solo lectura + ícono de candado |
-
-**Comportamiento:**
-- En `mount()`: inicializa a la lista default del sistema
-- Al seleccionar cliente (`updatedClienteId()`): auto-resetea a la lista del cliente (sin badge "Cambiada")
-- `cambiarLista(int $listaId)`: fuerza la lista, re-cotiza todos los items no-manuales
-- `restaurarLista()`: vuelve a la lista natural del cliente / default; limpia el badge
-- La lista forzada se pasa como `forzarListaId` en cada `CotizacionRequest` (tanto en `cotizarItem()` como en la re-validación de `registrarVenta()`)
-
-**Futura extensión de roles:** agregar el permiso en `/roles` (Spatie Permission) — los métodos `cambiarLista()` y `restaurarLista()` hacen `auth()->user()->hasRole([...])`.
-
-### Caja requirement
-
-`Ventas\Form` requiere una **Caja abierta** del usuario autenticado. Si no hay caja, `$sinCaja = true` y el formulario queda en modo lectura (no permite registrar). Abrir caja desde `/cajas`.
+| `super-admin`, `admin` | `<select>` editable + badge "Cambiada" + botón Restaurar |
+| Otros roles | Solo lectura + ícono candado |
 
 ---
 
-## Listas de Precios ABM (implemented May 2026)
+## Ventas\Form — estructura de estado
 
-Routes:
-```
-GET /listas-precios                           → Listas\Index
-GET /listas-precios/create                    → Listas\Form
-GET /listas-precios/{lista}/edit              → Listas\Form
-GET /listas-precios/{lista}/precios           → Listas\Precios   ← tramo grid per list
-GET /listas-precios/{lista}/exportar-precios  → ListasController::exportarPrecios()
-```
-
-`Listas\Precios` uses `public int $listaId` + `#[Computed] lista()` (NOT `public ListaPrecio $lista` — Livewire can't serialize models).
-
-### Herramientas de edición masiva de precios (implemented May 2026)
-
-Tres herramientas disponibles desde la barra de acciones en `/listas-precios/{lista}/precios`:
-
-#### 1. Ajuste % bulk
-- Sube o baja todos los precios de la lista en un porcentaje dado
-- Filtro opcional por rubro (solo afecta artículos del rubro seleccionado)
-- Livewire: `aplicarAjuste()` — aplica factor `(1 ± pct/100)` a todos los tramos via `ArticuloPrecio::where('lista_precio_id', ...)->get()`
-- Requiere confirmación (`wire:confirm`) antes de ejecutar
-
-#### 2. Exportar / Importar Excel (round-trip)
-
-**Export** (`app/Exports/ListaPreciosExport.php`):
-- `GET /listas-precios/{lista}/exportar-precios?verNetos=0&rubro=&search=`
-- Genera `.xlsx` con 9 columnas: ID_TRAMO (col A, gris), Código, Descripción, Rubro, Cant.Desde, Cant.Hasta, **Precio editable** (col G, fondo amarillo `FFF3CD`), IVA%, Precio referencia
-- Respeta filtros activos (`verNetos`, `rubro`, `search`) al momento de exportar
-- Implementa `FromCollection`, `WithHeadings`, `WithStyles`, `WithColumnWidths`
-
-**Import** (`app/Imports/ListaPreciosImport.php`):
-- Lee col[0]=`ID_TRAMO`, col[6]=precio editable; salta fila 0 (encabezado)
-- Parámetro `$modo`: `'final'` (convierte a neto via `Pricing::neto()`) o `'neto'` (guarda directo)
-- Valida que cada `ID_TRAMO` pertenezca a `$listaId` (seguridad)
-- Expone `$actualizados`, `$omitidos`, `$errores[]` tras ejecutar
-- Livewire: `importarExcel()` usa `WithFileUploads`, llama `Excel::import(new ListaPreciosImport(...), $file->path())`
-
-**Controller** (`app/Http/Controllers/ListasController.php`):
-- `exportarPrecios(int $lista)` — lee `verNetos`, `rubro`, `search` del request, devuelve `Excel::download()`
-
-#### 3. Grilla editable inline
-- Activa con `activarModoGrilla()`: carga todos los tramos en `$grillaPrecios[tramoId => precioDisplay]`
-- En modo grilla: paginación desactivada (usa `->get()` en lugar de `->paginate(25)`)
-- Cada celda de tramo muestra un `<input wire:model="grillaPrecios.{tramoId}">` con fondo amarillo
-- `guardarGrilla()`: itera `$grillaPrecios`, convierte display→neto según `$verNetos`, actualiza en batch
-- `desactivarModoGrilla()`: limpia `$grillaPrecios` y `$grillaIvas` sin guardar
-- Cambiar `toggleVerNetos()` mientras grilla activa recalcula todos los inputs via `cargarGrilla()`
-
----
-
-## Client Price Overrides
-
-`cliente_precios` table with `tipo` column:
-- `precio_articulo` — fixed price for a specific article
-- `bonif_articulo` — % discount for a specific article
-- `lista_rubro` — use a different list for all articles of a rubro
-
-Managed from `Clientes\Form` via `public array $overrides`. Incomplete overrides are silently discarded in `normalizarOverride()`.
-
----
-
-## Articulos\Form — Tramos
-
-The article form (`Articulos\Form`) only edits tramos for the **default list** (MINORISTA). It filters by `lista_precio_id = listaDefault->id` on load and only deletes/recreates those tramos on save. Other lists' tramos are untouched. Use `/listas-precios/{lista}/precios` to manage other lists.
-
-**`#[Computed] listaDefault()`** resolves: `es_default = true`, fallback to first active list by `orden`.
-
-**`$verNetosTramos`** (bool, default `false`): toggle in Articulos\Form to show/edit tramo prices as NET or FINAL. The `$tiers[*]['precio']` array holds whatever the user is viewing; conversion to neto happens in `save()`.
-
----
-
-## Sales Form Pricing Display Toggle
-
-**Feature:** Users can view/edit NET prices (for accountants) or FINAL (with VAT) prices (default).
-
-**Implementation:**
-- Livewire property: `public bool $verNetos = false`
-- Alpine toggle: `wire:click="toggleVerNetos"`
-- Per-item display state: `item._precioDisplay` (local Alpine state, not persisted)
-- Conversion on toggle: `toggleVerNetos()` recomputes `_precioDisplay` for all items using `Pricing::final()` / `Pricing::neto()`
-
-**On save:** display value converted back to neto via `Pricing::neto($precioDisplay, $iva)` before persisting.
-
----
-
-## Ventas Form Performance — Alpine/Livewire patterns
-
-**Problem (solved):** Each price input using `x-effect` created/destroyed Alpine reactivity on every array replacement → slowness.
-
-**Solution:**
-1. Use `x-model.number` for price inputs (Alpine's optimized binding)
-2. Store display value in `item._precioDisplay` (separate from stored neto)
-3. Use `@computed` for read-only getters
-
-**Array replacement pattern:**
 ```php
-// ❌ Wrong: mutates in-place, Alpine doesn't re-initialize _precioDisplay
-Object.assign($items[0], {precio: 50});
+// Item (stored in $this->items[])
+[
+    'articulo_id'       => int,
+    'rubro_id'          => ?int,      // clave agrupación tramos grupales
+    'descripcion'       => string,
+    'tipo_venta'        => 'CAJA'|'PESO',
+    'unidad_medida'     => string,    // segunda clave agrupación
+    'cantidad'          => float,
+    'precio'            => float,     // neto en BD
+    'alicuota_iva'      => float,     // 0, 10.5 o 21
+    'descuento'         => float,     // %
+    'subtotal'          => float,
+    'precio_manual'     => bool,      // true = no re-cotizar
+    'lista_precio_id'   => ?int,      // auditoría pricing
+    'tramo_aplicado_id' => ?int,
+    'regla_aplicada'    => ?string,
+    'precio_motor'      => ?float,
+]
 
-// ✅ Correct: replace full array to trigger Alpine re-initialization
-$this->items = array_map(fn($item) => [
-    ...$item,
-    '_precioDisplay' => Pricing::final($item['precio_neto'], $item['iva'])
-], $merged);
+// Pago Alpine (stored in this.pagos[])
+{ forma_pago: string, monto: float, _autoMonto: bool,
+  cheque: null | { banco, serie, nro, titular, cuit, fecha_emision, fecha_cobro } }
+
+// Lista forzada
+public ?int  $listaIdForzada  = null;   // null → motor resuelve
+public bool  $listaModificada = false;  // badge "Cambiada"
+
+// Presupuesto origen (si viene de convertirAVenta)
+public ?int $presupuestoOrigenId = null;
 ```
 
-**Alpine addItem/removeItem — MUST be async:**
+---
+
+## Patrones Alpine↔Livewire
+
+### addItem / removeItem — DEBEN ser async
+
 ```js
 async addItem() {
-    await this.$wire.addItem();   // wire-side first
-    this.syncItems();             // then sync Alpine
+    await this.$wire.addItem();   // wire-side primero
+    this.syncItems();             // después sync Alpine
 },
 async removeItem(index) {
     if (this.items.length > 1) {
@@ -409,225 +415,194 @@ async removeItem(index) {
         this.syncItems();
     }
 },
-async addItemAndFocus() {
-    await this.addItem();
-    const newIndex = this.items.length - 1;
-    this.$nextTick(() => {
-        const el = document.querySelector(`[data-row="${newIndex}"][data-field="articulo"]`);
-        if (el) el.focus();
-    });
-},
+```
+
+### Reemplazo de array (para re-inicializar `_precioDisplay`)
+
+```js
+// ❌ Mal: Alpine no re-inicializa _precioDisplay
+Object.assign(this.items[0], { precio: 50 });
+
+// ✅ Bien: reemplazar array entero
+this.items = this.items.map((item, i) => i === index ? { ...item, precio: 50, _precioDisplay: ... } : item);
 ```
 
 ---
 
-## Rounding & Calculation Precision
+## Precisión de cálculos
 
-**Rule:** Always compute subtotals from the displayed final price, not by re-converting from neto.
+**Regla:** los subtotales siempre se calculan desde el precio *mostrado* (display), no reconvirtiendo desde neto.
 
 ```
-✅ Correct: item._precioDisplay × cantidad × (1 - descuento/100)
-❌ Wrong:   (item.precio_neto × (1 + iva/100)) × cantidad × (1 - descuento/100)
+✅ item._precioDisplay × cantidad × (1 - descuento/100)
+❌ (item.precio_neto × (1 + iva/100)) × cantidad × (1 - descuento/100)
 ```
-
-**Totals panel:**
-- `iva21Total` = sum of (final_subtotal - neto_subtotal) for 21% items
-- `iva105Total` = sum of (final_subtotal - neto_subtotal) for 10.5% items
-- `totalVenta` = neto_subtotal + iva21_total + iva105_total
 
 ---
 
 ## VentaController
 
-`app/Http/Controllers/VentaController.php`
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `imprimir(Venta $venta)` | `ventas.imprimir` | Renders ticket or PDF template as HTML, injects `window.print()` + `onafterprint` redirect to `/ventas`. Format read from `impresion_formato` variable. 30s fallback redirect. |
-| `generarPdf(Venta $venta)` | `ventas.pdf` | DomPDF stream, A4 paper |
-| `generarTicket(Venta $venta)` | `ventas.ticket` | DomPDF stream, dynamic 72mm height (`520 + detalles×30 + pagos×15`, max 1400pt) |
-| `calcularSaldoAnterior(Venta)` | private | Looks up `CcCliente` movement for the sale; falls back to last CC balance before sale date |
-| `nombreArchivo(Venta)` | private | Returns filename: `Factura-B-0001-00000001.pdf` (with CAE) or `Recibo-00000001.pdf` |
-
-**`imprimir()` JS injection:**
-```js
-function irAVentas() { window.location.href = '{{ route("ventas") }}'; }
-window.onafterprint = irAVentas;
-window.onload = function () {
-    window.print();
-    setTimeout(irAVentas, 30000);  // fallback if onafterprint doesn't fire
-};
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `imprimir(Venta)` | `ventas.imprimir` | Renderiza template + inyecta `window.print()` y redirect `onafterprint`. 30s fallback. |
+| `generarPdf(Venta)` | `ventas.pdf` | DomPDF stream, papel A4 |
+| `generarTicket(Venta)` | `ventas.ticket` | DomPDF stream, 72mm dinámico |
 
 ---
 
-## Company Configuration (`/config`)
+## Configuración de empresa (`/config`)
 
-Route: `GET /config → Config\Index`  
-Component: `app/Livewire/Config/Index.php` (uses `WithFileUploads`)
+Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 
-**All settings stored in `variable_entorno` table via `VariableEntorno::set($key, $value)`.**
-
-### VariableEntorno model
-
-```php
-VariableEntorno::get(string $clave, mixed $default = null): mixed
-// Auto-casts by $tipo column: 'int', 'float', 'bool', default string
-
-VariableEntorno::set(string $clave, mixed $valor): void
-// updateOrCreate by clave; always stores as string
-```
-
-### All configuration keys
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `empresa_nombre` | string | — | Trade name |
-| `empresa_razon_social` | string | — | Legal name |
-| `empresa_cuit` | string | — | CUIT (format: 20-12345678-9) |
-| `empresa_domicilio` | string | — | Address |
-| `empresa_localidad` | string | — | City |
-| `empresa_telefono` | string | — | Phone |
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `empresa_nombre` | string | — | Nombre comercial |
+| `empresa_razon_social` | string | — | Razón social legal |
+| `empresa_cuit` | string | — | CUIT (formato: 20-12345678-9) |
+| `empresa_domicilio` | string | — | Domicilio |
+| `empresa_localidad` | string | — | Localidad |
+| `empresa_telefono` | string | — | Teléfono |
 | `empresa_email` | string | — | Email |
-| `empresa_logo_url` | string | — | `/storage/logos/filename.png` or external URL |
-| `punto_venta` | string | `0001` | AFIP sales point |
+| `empresa_logo_url` | string | — | `/storage/logos/archivo.png` o URL externa |
+| `punto_venta` | string | `0001` | Punto de venta AFIP |
 | `iibb_tipo` | string | `multilateral` | `multilateral` / `local` / `directo` |
-| `iibb_numero` | string | — | IIBB registration number |
-| `stock_negativo` | bool | `0` | Allow negative stock |
-| `ajuste_automatico` | bool | `1` | Auto-update cost price on purchase |
-| `pide_vendedor` | bool | `1` | Require seller selection on sales |
-| `listas_precio` | int | `3` | Number of price lists (1–6) — **actualizar a 5 en `/config`** para mostrar todas las listas |
+| `iibb_numero` | string | — | Nro. inscripción IIBB |
+| `stock_negativo` | bool | `0` | Permitir stock negativo |
+| `ajuste_automatico` | bool | `1` | Actualizar costo en compra |
+| `pide_vendedor` | bool | `1` | Requiere vendedor en venta |
+| `listas_precio` | int | `3` | Nro. de listas visibles en dropdowns (1–6) |
 | `impresion_formato` | string | `ticket` | `ticket` / `pdf` |
-| `impresion_auto_venta` | bool | `0` | Auto-print on sale register |
-| `impresora_nombre` | string | — | Reference only (browsers can't select printers) |
-
-### Logo Upload
-
-```php
-// Storage path: storage/app/public/logos/
-// Public URL:   /storage/logos/filename.ext
-// Requires:     php artisan storage:link
-
-// Validation: nullable|image|mimes:png,jpg,jpeg,gif,webp,svg|max:2048
-// removeLogo(): deletes file from disk, clears empresa_logo_url in DB
-```
+| `impresion_auto_venta` | bool | `0` | Auto-imprimir al registrar venta |
+| `impresora_nombre` | string | — | Solo referencia (browsers no pueden elegir impresora) |
 
 ---
 
-## Print Configuration
+## Seeders
 
-When `impresion_auto_venta = 1`, registering a sale redirects to `/ventas/{id}/imprimir` (full page load, **no SPA** — `navigate: false`) which auto-fires `window.print()` and redirects back to `/ventas` on `onafterprint`.
+| Seeder | Cuándo | Notas |
+|--------|--------|-------|
+| `RolesAndPermissionsSeeder` | `migrate:fresh --seed` | Siempre primero |
+| `ListaPrecioSeeder` | `migrate:fresh --seed` | Crea lista default (Minorista) y otras |
+| `DatosInicialSeeder` | `migrate:fresh --seed` | TipoIva, comprobantes AFIP, cliente "Consumidor Final" |
 
-Browsers cannot enumerate installed printers via JS — user must set the target printer as OS default (Windows: Panel de control → Dispositivos e impresoras).
-
----
-
-## Seeders (run order matters)
-
-| Seeder | When | Notes |
-|--------|------|-------|
-| `RolesAndPermissionsSeeder` | `migrate:fresh --seed` | Always first |
-| `ListaPrecioSeeder` | `migrate:fresh --seed` | Creates 5 lists: MINORISTA (default), MAYORISTA Retiro Local, MAY-MEDIANO, MAY-GRANDE, REPARTO |
-| `DatosInicialSeeder` | `migrate:fresh --seed` | TipoIva, AFIP docs, Consumidor Final client |
-| `PreciosFrangoExcelSeeder` | Manual after fresh seed | 90 articles — MIN: 134 tramos \| MAY-RETIRO: 172 \| MAY-MED: 52 \| MAY-GDE: 52 \| REPARTO: 172 |
-| `ClientesAvisurSeeder` | Manual / production-safe | 32 clients from Excel, idempotent by razon_social |
-
-**In production** (data already exists): only run `ClientesAvisurSeeder` (or `PreciosFrangoExcelSeeder`) — never `migrate:fresh`.
-
-### PreciosFrangoExcelSeeder conventions
-
-- Source file: `H:\Desarrollo\Documentacion\Avisur\LISTA DE PRECIOS SISTEMA NUEVOO.xlsx` (5 sheets, one per list)
-- All Excel prices are **FINAL (with IVA)**; seeder converts: `round($final / (1 + $iva/100), 4)`
-- IVA rates: Pollo/Cerdo → 10.5%, **HUEVOS → 21%, EMBUTIDOS → 21%**, rest → 21%
-- Closure used: `$finalAneto = fn(float $final, float $iva) => round($final / (1 + $iva / 100), 4)`
-- Each article row contains 5 tramo arrays (one per list); deletion covers all 5 lists before re-insert
-
-### ClientesAvisurSeeder
-
-- 32 clients, all `Consumidor Final` (TipoIva `codigo_afip = '05'`)
-- Idempotent via `firstOrCreate(['razon_social' => $name])`
-- Fields: `razon_social`, `domicilio`, `localidad`, `provincia='Buenos Aires'`, `celular`, `observacion`, `tipoiva_id`, `estado='A'`, `saldo=0`
-- Safe for production — does NOT wipe existing data
+**En producción** (datos ya existentes): nunca usar `migrate:fresh`. Solo correr migraciones incrementales.
 
 ---
 
-## Keyboard Shortcuts
+## Atajos de teclado
 
-| Screen | Key | Action |
-|--------|-----|--------|
-| `/ventas` (index) | **F2** | New sale (clicks `#btn-nueva-venta` with `wire:navigate`) |
-| `/ventas/create` | **F10** | Register sale (calls Alpine `guardar($wire)`) |
-
-Implementation notes:
-- F2: `x-on:keydown.window` on root div, `document.getElementById('btn-nueva-venta').click()` — reuses `wire:navigate` link directly
-- F10: `x-on:keydown.window` conditional on `!$readOnly && !$sinCaja`
+| Pantalla | Tecla | Acción |
+|----------|-------|--------|
+| `/ventas` (index) | **F2** | Nueva venta |
+| `/ventas/create` | **F10** | Registrar venta |
 
 ---
 
-## TipoIva codes (sistema AFIP)
+## Códigos TipoIVA (AFIP)
 
-| codigo_afip | Description |
+| codigo_afip | Descripción |
 |-------------|-------------|
 | `01` | Responsable Inscripto → letra A, IVA discriminado |
 | `05` | Consumidor Final → letra B |
 | `06` | Exento |
-| `99` | Default/unknown (treated as Consumidor Final) |
+| `99` | Default/desconocido (tratado como Consumidor Final) |
 
 ---
 
-## Test Suite
+## Suite de tests
 
 ```
 tests/Unit/Pricing/PriceEngineTest.php          — 15 unit tests
 tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
+tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-All 37 tests pass. Tests use `RefreshDatabase` against MySQL (port 3307) + `firstOrCreate` for seed rows inserted by migrations (e.g., MINORISTA list from migration `2026_05_08_000001`).
+**Total: 63 tests, 169 assertions — todos pasan.** Tests usan `RefreshDatabase` contra MySQL puerto 3307.
 
 ---
 
-## Key Migrations (pricing system, May 2026)
+## Migraciones clave
 
-| File | What it does |
-|------|-------------|
-| `2026_05_08_000001_create_listas_precios_table.php` | Creates `listas_precios`, inserts MINORISTA default row |
-| `2026_05_08_000002_add_lista_precio_id_to_articulo_precios_table.php` | Adds FK + backfill + `unidad_tramo` |
-| `2026_05_08_000003_add_lista_precio_id_to_cliente_precios_table.php` | Nullable FK for rubro-level overrides |
-| `2026_05_08_000004_change_clientes_lista_precio_to_lista_precio_id.php` | Replaces int `lista_precio` with FK |
-| `2026_05_08_000005_add_pricing_metadata_to_det_ventas_table.php` | Adds `lista_precio_id`, `tramo_aplicado_id`, `regla_aplicada`, `precio_motor`, `precio_manual` |
+| Archivo | Qué hace |
+|---------|---------|
+| `2026_05_08_000001_create_listas_precios_table` | Crea `listas_precios`, inserta fila MINORISTA default |
+| `2026_05_08_000002_add_lista_precio_id_to_articulo_precios_table` | FK + backfill + `unidad_tramo` |
+| `2026_05_08_000003_add_lista_precio_id_to_cliente_precios_table` | FK nullable para overrides por rubro |
+| `2026_05_08_000004_change_clientes_lista_precio_to_lista_precio_id` | Reemplaza int `lista_precio` con FK |
+| `2026_05_08_000005_add_pricing_metadata_to_det_ventas_table` | Auditoría de pricing en det_ventas |
+| `2026_05_18_000001_create_presupuestos_table` | Módulo Presupuestos |
+| `2026_05_18_000002_create_det_presupuestos_table` | Detalles de presupuesto |
+| `2026_05_18_000003_create_cheques_table` | Módulo Cheques |
+| `2026_05_18_000004_update_cheques_add_relations` | Agrega `serie`, estado `pendiente`, FKs a docs origen |
+| `2026_05_18_000005_create_movimientos_cheque_table` | Audit trail de cheques |
+| `2026_05_18_000006_add_cheque_id_to_pago_ventas` | FK inversa PagoVenta → Cheque |
+| `2026_05_31_000001_add_legacy_id_to_main_tables` | `legacy_id` (UNIQUE) en `rubros`, `articulos`, `clientes`, `proveedores` para importación idempotente |
 
 ---
 
-## Venta Model — Key fields
+## Modelo Venta — campos clave
 
 ```php
-// ventas table key columns
 'cliente_id'         // nullable FK → clientes
-'caja_id'            // FK → cajas (required to register)
-'nro_venta'          // sequential internal number
-'neto_21'            // taxable base at 21%
-'neto_10_5'          // taxable base at 10.5%
-'monto_iva21'        // IVA amount at 21%
-'monto_iva10_5'      // IVA amount at 10.5%
-'total'              // grand total
-'saldo'              // unpaid balance
-'percepcion'         // IIBB perception
-'percepiva21/10_5'   // IVA perception (21% / 10.5%)
-'cae'                // AFIP CAE code (nullable, manual invoices have null)
+'caja_id'            // FK → cajas (requerida para registrar)
+'nro_venta'          // número secuencial interno
+'neto_21'            // base imponible 21%
+'neto_10_5'          // base imponible 10.5%
+'monto_iva21'        // monto IVA 21%
+'monto_iva10_5'      // monto IVA 10.5%
+'total'              // total final
+'saldo'              // saldo impago
+'percepcion'         // percepción IIBB
+'percepiva21/10_5'   // percepción IVA
+'cae'                // CAE AFIP (null = comprobante manual)
 'tipo_comprobante'   // 'factura' | 'nota_credito' | 'nota_debito'
 'letra_comprobante'  // 'A' | 'B' | 'C'
 'estado'             // 'P'=Pendiente, 'C'=Cobrada, 'A'=Anulada
-// Soft deletes: SoftDeletes trait
-// Auditing: implements Auditable (owen-it)
+// SoftDeletes + owen-it Auditable
 ```
 
 ---
 
-## Pending / Next Phases
+## Artículos\Form — Tramos
 
-- **Phase 6**: Special rules + full auditing — delivery surcharge, cash discount on total, enable Auditing on pricing models
-- **Config listas_precio**: Update to `5` at `/config` so all 5 lists appear in UI dropdowns (currently defaults to `3`)
-- **DB test isolation**: Consider `.env.testing` with a separate MySQL DB to prevent RefreshDatabase from wiping development data
-- **Pendiente menor**: When user types qty in an empty row *before* selecting article, Alpine qty isn't passed to `seleccionarArticulo`. Workaround: always select article first, then adjust qty.
+El form de artículos solo edita tramos de la **lista default**. Para otras listas usar `/listas-precios/{lista}/precios`.
+
+`$verNetosTramos` (bool, default `false`): toggle neto/final en la grilla de tramos del form.
+
+---
+
+## Listas de precios — herramientas de edición masiva
+
+Desde `/listas-precios/{lista}/precios`:
+
+1. **Ajuste % bulk** — sube/baja todos los precios (o solo un rubro) por un porcentaje. `wire:confirm` antes de ejecutar.
+2. **Exportar/Importar Excel** — export `.xlsx` con ID_TRAMO en col A y precio editable en col G (fondo amarillo). Import lee col[0]=ID_TRAMO, col[6]=precio; modo `'final'` convierte con `Pricing::neto()`.
+3. **Grilla editable inline** — desactiva paginación, muestra inputs amarillos por tramo. `guardarGrilla()` guarda en batch.
+
+---
+
+## Pendientes / Próximas fases
+
+### Inmediatos
+- **Saldos CC legacy** — importar `cccliente` / `ccproveedor` como saldo inicial en `cc_clientes` / `cc_proveedores` (extender `centrogoma:importar`)
+- **Limpiar `\Log::error()`** en `Ventas\Form.php` — son trazas de debug, no deben ir a producción
+
+### Funcionalidades a portar desde `avicola` (ver `docs/ANALISIS_AVICOLA.md`)
+App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:
+- **Services/Caja/CajaService** — apertura/cierre de caja, arqueo, movimientos
+- **Services/Cheque/ChequeService** — lógica de cheques centralizada (CentroGoma la tiene inline en Livewire)
+- **Services/Compra/CompraService** — registración de compras + impacto en stock/CC proveedor
+- **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService)
+- **Anticipos**, **Bancos**, **Gastos**, **Estadisticas** (módulos Livewire completos)
+
+### Migración datos legacy — ✅ completado
+- `categorias` (201), `productos` (7.187), `clientes` (6.647), `proveedores` (251) importados vía `centrogoma:importar`
+
+### Backlog técnico
+- **DB test isolation** — `.env.testing` apuntando a una BD separada para no borrar datos de desarrollo al correr tests
+- **Vista readOnly con cheque vinculado** — en detalle de Recibo/OP/Venta, mostrar enlace al cheque creado y su estado actual
+- **Dashboard con KPIs reales** — ventas del día, cheques por vencer, estado de caja, saldo CC
+- **Fase 6 pricing** — recargo por entrega, descuento por pago en efectivo sobre el total
+- **Pendiente menor Alpine** — si el usuario tipea cantidad antes de seleccionar artículo, la cantidad no pasa a `seleccionarArticulo`. Workaround: siempre seleccionar artículo primero.

@@ -5,12 +5,16 @@ namespace App\Livewire\Ventas;
 use App\Models\Articulo;
 use App\Models\Caja;
 use App\Models\CcCliente;
+use App\Models\Banco;
 use App\Models\Cliente;
 use App\Models\DetVenta;
 use App\Models\ListaPrecio;
 use App\Models\MovimientoArticulo;
+use App\Models\Presupuesto;
 use App\Models\Venta;
 use App\Models\VariableEntorno;
+use App\Services\Caja\CajaService;
+use App\Services\Cheque\ChequeService;
 use App\Services\Pricing\CotizacionRequest;
 use App\Services\Pricing\PriceEngine;
 use Livewire\Attributes\Title;
@@ -61,10 +65,8 @@ class Form extends Component
 
     public string $payloadJson = '';
 
-    public function testPing(): void
-    {
-        \Log::error('testPing: el metodo Livewire funciona');
-    }
+    // Presupuesto origen (pre-carga el form desde un presupuesto)
+    public ?int $presupuestoOrigenId = null;
 
     public function mount(?int $venta = null): void
     {
@@ -87,6 +89,53 @@ class Form extends Component
         if ($venta) {
             $this->cargarVenta($venta);
         } else {
+            // Pre-cargar desde presupuesto si viene por query param
+            $presupuestoId = (int) request()->query('presupuesto_id');
+            if ($presupuestoId) {
+                $this->precargarDesdePresupuesto($presupuestoId);
+            } else {
+                $this->addItem();
+            }
+        }
+    }
+
+    private function precargarDesdePresupuesto(int $id): void
+    {
+        $p = Presupuesto::with('detalles.articulo', 'cliente')->find($id);
+        if (! $p || ! in_array($p->estado, ['A', 'V'])) {
+            $this->addItem();
+            return;
+        }
+
+        $this->presupuestoOrigenId = $p->id;
+        $this->cliente_id          = $p->cliente_id;
+        $this->listaIdForzada      = $p->lista_precio_id;
+
+        if ($p->cliente_id) {
+            $this->cargarDatosCliente($p->cliente_id);
+        }
+
+        $this->items = $p->detalles
+            ->filter(fn ($d) => $d->articulo_id)
+            ->map(fn ($d) => [
+                'articulo_id'       => $d->articulo_id,
+                'rubro_id'          => $d->articulo?->rubro_id,
+                'descripcion'       => $d->descripcion ?? $d->articulo?->descripcion ?? '',
+                'tipo_venta'        => $d->articulo?->tipo_venta ?? 'CAJA',
+                'unidad_medida'     => $d->articulo?->unidad_medida ?? 'unidad',
+                'cantidad'          => (float) $d->cantidad,
+                'precio'            => (float) $d->precio_unitario,
+                'alicuota_iva'      => (float) $d->alicuota_iva,
+                'descuento'         => (float) $d->descuento,
+                'subtotal'          => (float) $d->subtotal,
+                'precio_manual'     => false,
+                'lista_precio_id'   => $p->lista_precio_id,
+                'tramo_aplicado_id' => null,
+                'regla_aplicada'    => 'presupuesto',
+                'precio_motor'      => null,
+            ])->values()->toArray();
+
+        if (empty($this->items)) {
             $this->addItem();
         }
     }
@@ -479,19 +528,11 @@ class Form extends Component
 
     public function registrarVenta(array $payload): void
     {
-        \Log::error('registrarVenta: inicio', [
-            'payload_keys' => array_keys($payload),
-            'readOnly' => $this->readOnly,
-            'cliente_id' => $this->cliente_id,
-            'cajaId' => $this->cajaId,
-            'sinCaja' => $this->sinCaja,
-        ]);
-
         if ($this->readOnly) {
-            \Log::error('registrarVenta: abortado por readOnly');
             return;
         }
-        
+
+
         $this->items = $payload['items'] ?? [];
         $this->clienteData = $payload['clienteData'] ?? [];
         $this->descuento_general = $payload['descuento_general'] ?? 0;
@@ -499,15 +540,10 @@ class Form extends Component
             ->map(fn ($p) => [
                 'forma_pago' => $p['forma_pago'] ?? 'efectivo',
                 'monto' => (float) ($p['monto'] ?? 0),
+                'cheque' => $p['cheque'] ?? null,
             ])
             ->filter(fn ($p) => $p['monto'] > 0)
             ->values();
-
-        \Log::error('registrarVenta: datos preparados', [
-            'items_count' => count($this->items),
-            'pagos' => $pagos->toArray(),
-            'descuento_general' => $this->descuento_general,
-        ]);
 
         $totales = [
             'neto_21' => $payload['neto_21'] ?? 0,
@@ -531,8 +567,6 @@ class Form extends Component
             'items.*.articulo_id.required' => 'Seleccione un artículo en cada línea.',
             'items.*.cantidad.min'         => 'La cantidad debe ser mayor a 0.',
         ]);
-
-        \Log::error('registrarVenta: validacion ok');
 
         // ── Validacion dura de precios contra el motor ─────────────────────
         // Recotizamos cada item con el motor y verificamos que el precio
@@ -606,13 +640,11 @@ class Form extends Component
         }
 
         if ($pagos->isEmpty()) {
-            \Log::error('registrarVenta: sin pagos validos');
             $this->addError('pagos', 'Debe ingresar al menos una forma de pago.');
             return;
         }
 
         if ($pagos->contains(fn ($p) => ! in_array($p['forma_pago'], ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'cuenta_corriente', 'otro'], true))) {
-            \Log::error('registrarVenta: forma de pago invalida', ['pagos' => $pagos->toArray()]);
             $this->addError('pagos', 'Una de las formas de pago no es válida.');
             return;
         }
@@ -636,13 +668,6 @@ class Form extends Component
         $montoPagado    = round($pagos->where('forma_pago', '!=', 'cuenta_corriente')->sum('monto'), 2);
         $saldo          = max(round($total - $montoPagado, 2), 0);
         $formaPagoPrincipal = $pagos->first()['forma_pago'];
-
-        \Log::error('registrarVenta: totales calculados', [
-            'total' => $total,
-            'montoPagado' => $montoPagado,
-            'saldo' => $saldo,
-            'formaPagoPrincipal' => $formaPagoPrincipal,
-        ]);
 
         $nroVenta = (Venta::max('nro_venta') ?? 0) + 1;
 
@@ -672,8 +697,6 @@ class Form extends Component
             'estado'           => $saldo > 0 ? 'P' : 'C',
             'observacion'      => $this->observacion ?: null,
         ]);
-
-        \Log::error('registrarVenta: venta creada', ['venta_id' => $venta->id, 'nro_venta' => $nroVenta]);
 
         // Detalles + movimientos de stock
         foreach ($this->items as $item) {
@@ -723,23 +746,50 @@ class Form extends Component
                 continue;
             }
 
-            $venta->pagos()->create([
+            $pagoVenta = $venta->pagos()->create([
                 'caja_id'    => $this->cajaId,
                 'fecha'      => $this->fecha,
                 'forma_pago' => $pago['forma_pago'],
                 'monto'      => $pago['monto'],
             ]);
+
+            // Cheque de tercero recibido → ingresa a la cartera de valores (estado cartera).
+            // La plata entra a la caja banco al acreditarlo desde /cheques.
+            $ch = $pago['cheque'] ?? null;
+            if ($pago['forma_pago'] === 'cheque' && ! empty($ch['nro'])) {
+                app(ChequeService::class)->registrarRecibido([
+                    'banco_id'        => $ch['banco_id'] ?? null,
+                    'serie'           => ($ch['serie'] ?? '') ?: null,
+                    'nro_cheque'      => $ch['nro'],
+                    'monto'           => (float) $pago['monto'],
+                    'cliente_id'      => $this->cliente_id,
+                    'caja_origen_id'  => $this->cajaId,
+                    'venta_id'        => $venta->id,
+                    'es_echeq'        => (bool) ($ch['es_echeq'] ?? false),
+                    'fecha_recepcion' => $this->fecha,
+                    'fecha_pago'      => ($ch['fecha_pago'] ?? '') ?: $this->fecha,
+                    'librador_nombre' => $ch['librador_nombre'] ?? null,
+                    'librador_cuit'   => ($ch['librador_cuit'] ?? '') ?: null,
+                    'observacion'     => "Venta #{$nroVenta}",
+                    'referencia_type' => Venta::class,
+                    'referencia_id'   => $venta->id,
+                ]);
+            }
         }
 
-        \Log::error('registrarVenta: pagos procesados');
-
-        // Actualizar totales de caja
-        if ($this->cajaId) {
-            $caja = Caja::find($this->cajaId);
-            $caja?->increment('total_ventas', $total);
+        // Actualizar totales de caja (libro de movimientos + contador cacheado)
+        if ($this->cajaId && ($caja = Caja::find($this->cajaId))) {
+            app(CajaService::class)->registrarMovimiento(
+                $caja, 'ingreso', 'venta', $total,
+                [
+                    'forma_pago'      => $formaPagoPrincipal,
+                    'referencia_type' => Venta::class,
+                    'referencia_id'   => $venta->id,
+                    'descripcion'     => "Venta #{$nroVenta}",
+                    'fecha'           => $this->fecha,
+                ]
+            );
         }
-
-        \Log::error('registrarVenta: caja procesada');
 
         if ($hasCC && $saldo > 0 && $this->cliente_id) {
             $cliente = Cliente::find($this->cliente_id);
@@ -761,7 +811,12 @@ class Form extends Component
             }
         }
 
-        \Log::error('registrarVenta: finalizando', ['nro_venta' => $nroVenta]);
+        // Marcar presupuesto origen como Facturado
+        if ($this->presupuestoOrigenId) {
+            Presupuesto::where('id', $this->presupuestoOrigenId)
+                ->whereIn('estado', ['A', 'V'])
+                ->update(['estado' => 'F']);
+        }
 
         session()->flash('success', "Venta #{$nroVenta} registrada correctamente.");
 
@@ -777,16 +832,9 @@ class Form extends Component
 
     public function registrarVentaDesdePayload(): void
     {
-        \Log::error('registrarVentaDesdePayload: inicio', [
-            'payloadJson_length' => strlen($this->payloadJson),
-        ]);
-
         $payload = json_decode($this->payloadJson, true);
 
         if (! is_array($payload)) {
-            \Log::error('registrarVentaDesdePayload: payload invalido', [
-                'json_error' => json_last_error_msg(),
-            ]);
             $this->addError('payloadJson', 'No se pudieron procesar los datos de la venta.');
             return;
         }
@@ -796,16 +844,9 @@ class Form extends Component
 
     public function registrarVentaDesdeJson(string $payloadJson): void
     {
-        \Log::error('registrarVentaDesdeJson: inicio', [
-            'payloadJson_length' => strlen($payloadJson),
-        ]);
-
         $payload = json_decode($payloadJson, true);
 
         if (! is_array($payload)) {
-            \Log::error('registrarVentaDesdeJson: payload invalido', [
-                'json_error' => json_last_error_msg(),
-            ]);
             $this->addError('payloadJson', 'No se pudieron procesar los datos de la venta.');
             return;
         }
@@ -876,6 +917,7 @@ class Form extends Component
             'descuento_general' => $this->descuento_general,
             'listasPrecios'     => $listasPrecios,
             'listaActual'       => $listaActual,
+            'bancos'            => Banco::where('activo', true)->orderBy('descripcion')->get(),
         ]);
     }
 }
