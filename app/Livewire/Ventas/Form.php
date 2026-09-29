@@ -72,7 +72,7 @@ class Form extends Component
     {
         $this->fecha = now()->toDateString();
 
-        $caja = Caja::where('estado', 'abierta')
+        $caja = Caja::where('estado', 'abierta')->where('tipo', 'diaria')
             ->where('user_id', auth()->id())
             ->latest()->first();
 

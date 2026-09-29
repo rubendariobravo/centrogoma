@@ -55,7 +55,7 @@ class Form extends Component
         $this->cheque_fecha_emision = now()->toDateString();
         $this->cheque_fecha_pago    = now()->addDays(30)->toDateString();
 
-        $caja = Caja::where('estado', 'abierta')
+        $caja = Caja::where('estado', 'abierta')->where('tipo', 'diaria')
             ->where('user_id', Auth::id())
             ->latest()->first();
 

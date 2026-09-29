@@ -59,7 +59,7 @@
             {{-- Indicador de caja abierta --}}
             @php
                 $cajaActual = auth()->check()
-                    ? \App\Models\Caja::where('estado', 'abierta')->latest()->first()
+                    ? \App\Models\Caja::where('estado', 'abierta')->where('tipo', 'diaria')->where('user_id', auth()->id())->latest()->first()
                     : null;
             @endphp
             @if($cajaActual)

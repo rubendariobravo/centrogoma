@@ -39,7 +39,7 @@ class Dashboard extends Component
             ->whereColumn('stock', '<=', 'stock_minimo')
             ->count();
 
-        $this->cajaAbierta = Caja::where('estado', 'abierta')->latest()->first();
+        $this->cajaAbierta = Caja::where('estado', 'abierta')->where('tipo', 'diaria')->where('user_id', auth()->id())->latest()->first();
 
         $this->ultimasVentas = Venta::with('cliente')
             ->where('estado', '!=', 'A')

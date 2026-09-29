@@ -42,7 +42,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (70 tests, 210 assertions — todos pasan)
+# Correr tests (84 tests, 267 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -222,6 +222,7 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 | `GET /listas-precios/{lista}/exportar-precios` | `ListasController::exportarPrecios()` | `listas-precios.exportar` |
 | **Caja y Finanzas** | | |
 | `GET /cajas` | `Cajas\Index` | `cajas` |
+| `GET /cajas/{caja}` | `Cajas\Show` | `cajas.show` |
 | `GET /cheques` | `Cheques\Index` | `cheques` |
 | `GET /cc-clientes` | `CcClientes\Index` | `cc-clientes` |
 | `GET /cc-proveedores` | `CcProveedores\Index` | `cc-proveedores` |
@@ -524,10 +525,11 @@ tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
+tests/Feature/Caja/                             — 14 tests (CajaService, transferencias, detalle de caja)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 70 tests, 210 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
+**Total: 84 tests, 267 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
 
 ---
 
@@ -603,7 +605,7 @@ Desde `/listas-precios/{lista}/precios`:
 ### Funcionalidades a portar desde `avicola` (ver `docs/ANALISIS_AVICOLA.md`)
 App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:
 - ✅ CajaService, ChequeService, CompraService (portados)
-- **UI de caja** — `Cajas\Index` usa solo los contadores viejos; falta detalle `/cajas/{caja}` con libro + arqueo, cajas general/banco y transferencias
+- ✅ UI de caja — `Cajas\Index` (apertura con cierre anterior, cajas general/banco, transferencias, ajustes, cierre con transferencia) + `Cajas\Show` (libro con saldo corrido en efectivo, pestañas por documento)
 - **Gastos** (`/gastos`, modelos ya creados), **Bancos** (`/bancos`, tabla ya sembrada), **Anticipos**, **Estadisticas**
 - **Anular venta / recibo / OP** revirtiendo caja y CC vía `CajaService::revertirMovimientosDe()`
 - **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último

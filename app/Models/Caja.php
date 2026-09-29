@@ -101,6 +101,23 @@ class Caja extends Model implements Auditable
     private ?array $resumenCache = null;
 
     /**
+     * ¿Este movimiento mueve efectivo físico del cajón?
+     *
+     * Única definición del criterio: la usan `resumenMovimientos()` (para el saldo
+     * en efectivo y el arqueo) y el saldo corrido del detalle de caja, así que no
+     * pueden divergir.
+     *
+     * Ojo con la ambigüedad de "transferencia": una venta o cobro con
+     * `forma_pago='transferencia'` es una transferencia BANCARIA (no es efectivo).
+     * Una transferencia ENTRE cajas tiene `concepto='transferencia'` y sí mueve
+     * plata física de un cajón a otro.
+     */
+    public static function movimientoEsEfectivo(?string $formaPago, ?string $concepto): bool
+    {
+        return $formaPago === 'efectivo' || $concepto === 'transferencia';
+    }
+
+    /**
      * Resumen del libro de movimientos discriminado por forma de pago.
      * Una sola pasada sobre `movimiento_cajas`. Distingue el efectivo físico
      * (forma_pago='efectivo' + transferencias entre cajas) del resto de los
@@ -130,7 +147,7 @@ class Caja extends Model implements Auditable
         foreach ($movs as $m) {
             $monto      = (float) $m->monto;
             $esTransfer = $m->concepto === 'transferencia';
-            $esEfectivo = $m->forma_pago === 'efectivo' || $esTransfer;
+            $esEfectivo = self::movimientoEsEfectivo($m->forma_pago, $m->concepto);
             $medio      = $m->forma_pago ?: ($esTransfer ? 'transferencia_caja' : 'otro');
 
             if ($m->tipo === 'ingreso') {
@@ -199,14 +216,24 @@ class Caja extends Model implements Auditable
 
     /**
      * Saldo disponible para transferir desde esta caja.
-     * En una caja diaria solo se puede mover el efectivo físico; en cajas
-     * generales/bancos todo el saldo es movible (no hay distinción de efectivo).
+     *
+     * Siempre es el saldo en EFECTIVO, cualquiera sea el tipo de caja: una
+     * transferencia entre cajas mueve valor físico (se asienta con
+     * concepto='transferencia', que `resumenMovimientos()` cuenta como
+     * efectivo), así que el techo tiene que estar en la misma base. Si se
+     * usara el saldo bruto, la caja destino recibiría "efectivo" que el origen
+     * nunca tuvo.
+     *
+     * Antes las cajas generales/banco usaban el bruto (`saldo_esperado`) bajo
+     * el supuesto de que su saldo era todo transferencias/depósitos. Ese
+     * supuesto se rompe cuando se le cargan egresos por medios no-efectivo
+     * (cheques, transferencias bancarias) sin registrar el ingreso que los
+     * fondea: el bruto se va a negativo y bloquea toda transferencia aunque
+     * haya efectivo disponible.
      */
     public function getSaldoTransferibleAttribute(): float
     {
-        return $this->tipo === 'diaria'
-            ? $this->saldo_efectivo_esperado
-            : (float) $this->saldo_esperado;
+        return $this->saldo_efectivo_esperado;
     }
 
     public function nombreEtiqueta(): string
