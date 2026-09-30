@@ -80,7 +80,7 @@
                 <h2 class="text-sm font-semibold text-gray-700">Datos del recibo</h2>
                 <div class="grid grid-cols-2 gap-y-2 text-sm">
                     <span class="text-gray-500">Cliente</span>
-                    <span class="font-medium text-gray-900">{{ $clientes->find($cliente_id)?->razon_social ?? '—' }}</span>
+                    <span class="font-medium text-gray-900">{{ $this->clienteSeleccionado()?->razon_social ?? '—' }}</span>
                     <span class="text-gray-500">Fecha</span>
                     <span class="text-gray-900">{{ \Carbon\Carbon::parse($fecha)->format('d/m/Y') }}</span>
                     <span class="text-gray-500">Forma de pago</span>
@@ -262,14 +262,7 @@
                 {{-- Cliente --}}
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Cliente *</label>
-                    <select wire:model.live="cliente_id"
-                            class="w-full text-sm border {{ $errors->has('cliente_id') ? 'border-red-300' : 'border-[#DDE1E7]' }} rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                        <option value="">— Seleccionar —</option>
-                        @foreach($clientes as $c)
-                            <option value="{{ $c->id }}">{{ $c->razon_social }}</option>
-                        @endforeach
-                    </select>
-                    @error('cliente_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <x-buscador-cliente vacio="Buscar cliente por nombre o CUIT…" error="cliente_id" />
                 </div>
 
                 {{-- Saldo actual --}}

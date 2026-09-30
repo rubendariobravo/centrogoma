@@ -96,17 +96,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="sm:col-span-2">
                     <label class="block text-xs font-medium text-gray-600 mb-1">Cliente</label>
-                    <select wire:model.live="cliente_id"
-                            {{ $readOnly ? 'disabled' : '' }}
-                            class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white @error('cliente_id') border-red-400 @enderror">
-                        <option value="">Consumidor final</option>
-                        @foreach($clientes as $cliente)
-                            <option value="{{ $cliente->id }}">{{ $cliente->razon_social }}</option>
-                        @endforeach
-                    </select>
-                    @error('cliente_id')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
+                    <x-buscador-cliente vacio="Consumidor final" :disabled="$readOnly" error="cliente_id" />
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
@@ -640,7 +630,10 @@ function ventaForm(config) {
             // Cuando el backend recotiza items en respuesta a un cambio de cliente
             // (updatedClienteId), no hay accion Alpine explicita que dispare syncItems.
             // El backend nos avisa con dispatch('items-actualizados').
+            // También refresca clienteData: las percepciones (IIBB / IVA) se calculan acá con
+            // la copia local, que si no quedaba con el cliente anterior.
             this.$wire.on('items-actualizados', () => {
+                this.clienteData = JSON.parse(JSON.stringify(this.$wire.clienteData || {}));
                 this.syncItems();
             });
         },

@@ -12,12 +12,14 @@ use App\Models\Venta;
 use App\Services\Caja\CajaService;
 use App\Services\Cheque\ChequeService;
 use Illuminate\Support\Facades\Auth;
+use App\Livewire\Concerns\BuscaCliente;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Nuevo recibo')]
 class Form extends Component
 {
+    use BuscaCliente;
     public ?int $reciboId = null;
 
     public ?int    $cliente_id  = null;
@@ -280,7 +282,6 @@ class Form extends Component
     public function render()
     {
         return view('livewire.recibos.form', [
-            'clientes' => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
             'bancos'   => Banco::where('activo', true)->orderBy('descripcion')->get(),
         ]);
     }

@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Recibo;
 use App\Livewire\Concerns\AnulaComprobante;
 use App\Services\Anulacion\AnulacionService;
+use App\Livewire\Concerns\BuscaCliente;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -13,6 +14,17 @@ use Livewire\WithPagination;
 #[Title('Recibos')]
 class Index extends Component
 {
+    use BuscaCliente;
+
+    protected function clienteCampo(): string
+    {
+        return 'filterCliente';
+    }
+
+    public function updatedFilterCliente(): void
+    {
+        $this->resetPage();
+    }
     use WithPagination;
     use AnulaComprobante;
 
@@ -74,7 +86,6 @@ class Index extends Component
         return view('livewire.recibos.index', [
             'recibos'      => $recibos,
             'totalPeriodo' => $totalPeriodo,
-            'clientes'     => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
         ]);
     }
 }

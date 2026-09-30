@@ -37,13 +37,9 @@
                            class="w-full pl-9 pr-4 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                 </div>
             </div>
-            <select wire:model.live="filterCliente"
-                    class="text-sm border border-[#DDE1E7] rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                <option value="">Todos los clientes</option>
-                @foreach($clientes as $c)
-                    <option value="{{ $c->id }}">{{ $c->razon_social }}</option>
-                @endforeach
-            </select>
+            <div class="w-72">
+                <x-buscador-cliente vacio="Todos los clientes" />
+            </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500">Desde</label>
                 <input wire:model.live="filterDesde" type="date"

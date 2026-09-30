@@ -10,12 +10,14 @@ use App\Models\Presupuesto;
 use App\Services\Pricing\PriceEngine;
 use App\Services\Pricing\CotizacionRequest;
 use Livewire\Attributes\Computed;
+use App\Livewire\Concerns\BuscaCliente;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Presupuesto')]
 class Form extends Component
 {
+    use BuscaCliente;
     public ?int $presupuestoId = null;
 
     // Cabecera
@@ -342,7 +344,6 @@ class Form extends Component
     public function render()
     {
         return view('livewire.presupuestos.form', [
-            'clientes'      => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
             'listasPrecios' => ListaPrecio::where('activo', true)->orderBy('orden')->get(),
         ]);
     }

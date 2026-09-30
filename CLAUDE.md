@@ -43,7 +43,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (112 tests, 423 assertions — todos pasan)
+# Correr tests (133 tests, 492 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -182,6 +182,12 @@ Patrón estándar por dominio:
 - `Form` — crear + editar (recibe `?int $id` en `mount()`)
 
 **Alpine.js** maneja estado reactivo local (filas de items en Ventas, dropdowns, etc.).
+
+**Selección de clientes:** nunca un `<select>` con todos los clientes (~6.6K). Usar el trait
+`App\Livewire\Concerns\BuscaCliente` + `<x-buscador-cliente vacio="…" error="cliente_id" />`: búsqueda server-side
+por palabras en razón social/fantasía o por CUIT/DNI (máx. 15 resultados), teclado ↑↓ Enter. El campo destino es
+`cliente_id` (sobreescribir `clienteCampo()` para otro, ej. `filterCliente`); al seleccionar se dispara el hook
+`updated{Campo}()` del componente. Proveedores (~250) siguen con `<select>`.
 
 **Regla crítica Alpine↔Livewire:** `addItem()` / `removeItem()` DEBEN llamar `await this.$wire.addItem()` / `await this.$wire.removeItem(index)` **antes** de `syncItems()`, si no el array `$items` de Livewire se desincroniza y pierde filas silenciosamente.
 
@@ -581,10 +587,12 @@ tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
 tests/Feature/Anulaciones/AnulacionesTest.php  — 13 tests (venta/recibo/OP registradas con los forms reales y anuladas)
 tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 6 tests (saldo, a favor, dry-run, re-corrida, saldo ya cobrado)
+tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selección y hooks por pantalla)
+tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 112 tests, 423 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 133 tests, 492 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -666,7 +674,7 @@ App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún aus
 - ✅ **Gastos** (egreso de caja vía CajaService; editar/eliminar revierte) y **Bancos**
 - **Anticipos**, **Estadisticas**
 - ✅ Anular venta / recibo / OP (`AnulacionService`)
-- **Filtros de cliente/proveedor** en Recibos/OP/Ventas cargan los 6.6K clientes en un `<select>` → reemplazar por buscador
+- ✅ Buscador de clientes (Ventas, Presupuestos, Recibos, filtro de Recibos, Cheques)
 - **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último
 
 ### Migración datos legacy — ✅ completado

@@ -17,12 +17,14 @@ use App\Services\Caja\CajaService;
 use App\Services\Cheque\ChequeService;
 use App\Services\Pricing\CotizacionRequest;
 use App\Services\Pricing\PriceEngine;
+use App\Livewire\Concerns\BuscaCliente;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Nueva venta')]
 class Form extends Component
 {
+    use BuscaCliente;
     public ?int $ventaId = null;
 
     // Encabezado
@@ -926,7 +928,6 @@ class Form extends Component
 
         return view('livewire.ventas.form', [
             'articulosData'     => $articulosData,
-            'clientes'          => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
             'items'             => $this->items,
             'clienteData'       => $this->clienteData,
             'descuento_general' => $this->descuento_general,

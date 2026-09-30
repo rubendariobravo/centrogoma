@@ -86,7 +86,6 @@ class Index extends Component
         return view('livewire.presupuestos.index', [
             'presupuestos' => $presupuestos,
             'totalPeriodo' => $totalPeriodo,
-            'clientes'     => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
         ]);
     }
 }

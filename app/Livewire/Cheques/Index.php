@@ -8,6 +8,7 @@ use App\Models\Cheque;
 use App\Models\Cliente;
 use App\Models\Proveedor;
 use App\Services\Cheque\ChequeService;
+use App\Livewire\Concerns\BuscaCliente;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -16,15 +17,23 @@ use Livewire\WithPagination;
 #[Title('Cheques')]
 class Index extends Component
 {
+    use BuscaCliente;
     use WithPagination;
 
     // Filtros
-    #[Url] public string $filterTipo   = 'tercero';
+    #[Url] public string $filterTipo   = '';   // '' = todos los cheques
     #[Url] public string $filterEstado = '';
     public ?int   $filterBanco   = null;
     public string $search        = '';
     public string $filterDesde   = '';
     public string $filterHasta   = '';
+
+    // Ordenamiento por columna
+    #[Url] public string $sortField = 'fecha_pago';
+    #[Url] public string $sortDir   = 'asc';
+
+    /** Columnas ordenables → cómo se traducen al ORDER BY. */
+    public const SORTABLES = ['nro_cheque', 'banco', 'librador_nombre', 'fecha_pago', 'monto', 'estado', 'tipo'];
 
     // Formulario alta / edición
     public bool    $showForm        = false;
@@ -47,7 +56,7 @@ class Index extends Component
 
     // Modal de acción de estado
     public ?int    $actionChequeId = null;
-    public string  $actionType     = '';      // depositar | acreditar | debitar | rechazar | anular
+    public string  $actionType     = '';      // depositar | acreditar | rechazar | anular
     public ?int    $actionCajaId   = null;
     public string  $actionObs      = '';
 
@@ -94,6 +103,46 @@ class Index extends Component
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingFilterTipo(): void { $this->resetPage(); }
     public function updatingFilterEstado(): void { $this->resetPage(); }
+
+    /** Al cambiar el tipo, descarta un estado que no exista para esa naturaleza. */
+    public function updatedFilterTipo(): void
+    {
+        if ($this->filterEstado && ! in_array($this->filterEstado, $this->estadosDisponibles(), true)) {
+            $this->filterEstado = '';
+        }
+    }
+
+    /** Estados ofrecidos en el filtro, según el tipo elegido. */
+    public function estadosDisponibles(): array
+    {
+        $tercero = ['cartera', 'depositado', 'acreditado', 'rechazado', 'aplicado', 'vendido'];
+        $propio  = ['emitido', 'debitado', 'rechazado'];
+
+        $estados = match ($this->filterTipo) {
+            'tercero' => $tercero,
+            'propio'  => $propio,
+            default   => array_values(array_unique([...$tercero, ...$propio])),
+        };
+
+        return [...$estados, 'anulado'];
+    }
+
+    /** Clic en el encabezado: primer clic ordena ascendente, el siguiente invierte. */
+    public function sortBy(string $field): void
+    {
+        if (! in_array($field, self::SORTABLES, true)) {
+            return;
+        }
+
+        if ($this->sortField === $field) {
+            $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDir   = 'asc';
+        }
+
+        $this->resetPage();
+    }
 
     public function openCreate(): void
     {
@@ -165,6 +214,7 @@ class Index extends Component
             session()->flash('success', 'Cheque registrado.');
         }
 
+        $this->dispatch('cheques-actualizados');
         $this->resetForm();
     }
 
@@ -176,7 +226,7 @@ class Index extends Component
         $this->actionType     = $type;
         $this->actionObs      = '';
         $cheque = Cheque::find($id);
-        // Pre-selecciona caja banco para depositar/acreditar/debitar
+        // Pre-selecciona caja banco para depositar/acreditar
         $this->actionCajaId = $cheque?->caja_id ?? $this->cajasBanco()->first()?->id;
     }
 
@@ -200,6 +250,7 @@ class Index extends Component
                 default     => null,
             };
             session()->flash('success', 'Cheque actualizado correctamente.');
+            $this->dispatch('cheques-actualizados');   // la campana baja el badge en el acto
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
         }
@@ -249,6 +300,28 @@ class Index extends Component
         $this->resetValidation();
     }
 
+    /**
+     * Aplica el ORDER BY de la columna elegida. El banco se ordena por su descripción
+     * (subconsulta, no join: no duplica filas ni pisa el select de la paginación).
+     */
+    private function aplicarOrden($query)
+    {
+        $field = in_array($this->sortField, self::SORTABLES, true) ? $this->sortField : 'fecha_pago';
+        $dir   = $this->sortDir === 'desc' ? 'desc' : 'asc';
+
+        if ($field === 'banco') {
+            $query->orderBy(
+                Banco::select('descripcion')->whereColumn('bancos.id', 'cheques.banco_id'),
+                $dir
+            );
+        } else {
+            $query->orderBy($field, $dir);
+        }
+
+        // Desempate estable para que la paginación no repita ni saltee filas.
+        return $query->orderBy('id', $dir);
+    }
+
     public function render()
     {
         $query = Cheque::with(['banco', 'cliente', 'proveedor', 'caja'])
@@ -263,13 +336,13 @@ class Index extends Component
 
         $totalFiltrado = (clone $query)->sum('monto');
 
-        $cheques = $query->orderBy('fecha_pago')->paginate(25);
+        $cheques = $this->aplicarOrden($query)->paginate(25);
 
         return view('livewire.cheques.index', [
             'cheques'       => $cheques,
             'totalFiltrado' => $totalFiltrado,
+            'estados'       => $this->estadosDisponibles(),
             'bancos'        => Banco::where('activo', true)->orderBy('descripcion')->get(),
-            'clientes'      => Cliente::where('estado', 'A')->orderBy('razon_social')->get(),
             'proveedores'   => Proveedor::where('estado', 'A')->orderBy('razon_social')->get(),
             'cajasBanco'    => $this->cajasBanco(),
         ]);
