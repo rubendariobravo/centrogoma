@@ -43,7 +43,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (106 tests, 383 assertions — todos pasan)
+# Correr tests (112 tests, 423 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -95,8 +95,8 @@ Tablas relevantes de `centro_goma` y su mapeo a la BD nueva:
 | `proveedor` | 251 | `proveedores` | ✅ Importado |
 | `plan_cuenta` | 28 | `categorias_gasto` | ✅ Importado (24; se omiten 25–28, que no son gastos) |
 | `banco` | 10 | `bancos` | — Cubierto por los 16 bancos sembrados |
-| `cccliente` | ~500K | `cc_clientes` (saldo inicial por cliente) | ⏳ Pendiente |
-| `ccproveedor` | — | `cc_proveedores` (saldo inicial por proveedor) | ⏳ Pendiente |
+| `cccliente` | 20.005 | comprobantes de saldo inicial + `cc_clientes` | ✅ `centrogoma:importar-saldos` |
+| `ccproveedor` | 20.483 | comprobantes de saldo inicial + `cc_proveedores` | ✅ `centrogoma:importar-saldos` |
 
 ### Comando `centrogoma:importar`
 
@@ -124,6 +124,36 @@ agregada por la migración `2026_05_31_000001_add_legacy_id_to_main_tables`. El 
 - Código de artículo vacío → `LEG-{id_producto}`.
 - **CUIT inválido** (clientes y proveedores) → se guarda `null` cuando: largo < 7 ó > 13, o todos los caracteres iguales (`00000…`, `IIIII…`). Regex: `/^(.)\1+$/`.
 - **CUIT duplicado** en proveedores (error de carga legacy: mismo CUIT en varias razones sociales) → se captura `QueryException 1062` y se reintenta guardando con CUIT `null` (warning, no error).
+
+### Comando `centrogoma:importar-saldos` — saldos de cuenta corriente
+
+Implementado en `app/Console/Commands/ImportarSaldosLegacy.php`.
+
+```bash
+php artisan centrogoma:importar-saldos [--corte=YYYY-MM-DD] [--dry-run] [--solo=clientes,proveedores] [--epsilon=1]
+```
+
+- **Saldo** = `SUM(egreso) − SUM(ingreso)` hasta el corte (inclusive), igual que `qSaldoCliente`/`qSaldoProveedor`
+  del Delphi. Se ignoran `estado` (marca manual de "pagada") y la columna `saldo` (saldo corrido que reescribe la pantalla).
+  Positivo = el cliente nos debe / le debemos al proveedor.
+- **Deuda** → comprobante de saldo inicial: venta/compra con `saldo_inicial = 1`, sin renglones, pendiente. Se cobra
+  con Recibo / se paga con Orden de Pago como cualquier comprobante, pero queda fuera de totales (scope `comerciales()`).
+- **Saldo a favor** → solo asiento en la CC (haber) + saldo de la ficha; se lista para revisar.
+- Se excluye la cuenta de mostrador (CONSUMIDOR FINAL, legacy id 1). Los movimientos con fecha posterior al corte
+  (hay un pago con fecha 2109) no se incluyen y se listan.
+- **Repetible:** cada corrida deshace lo que cargó la anterior y lo vuelve a cargar, salvo cuentas cuyo saldo inicial
+  ya se cobró/pagó o anuló en la app (se dejan y se avisa).
+
+Corte de prueba 29/09/2026 (BD legacy desactualizada): 42 clientes deudores ($276.502.954,10), 43 a favor
+(−$1.247.548,49), 46 proveedores acreedores ($39.875.624,80), 14 a favor nuestro (−$2.474.621,44).
+
+#### Salida a producción (con la BD legacy actualizada a esa fecha)
+
+1. Apuntar `LEGACY_DB_*` del `.env` a la BD Delphi actualizada.
+2. `php artisan centrogoma:importar --force` — maestros (altas nuevas + cambios).
+3. `php artisan centrogoma:importar-saldos --corte=<último día operado en Delphi> --dry-run` → revisar el reporte
+   (saldos a favor, fechas posteriores al corte) con administración.
+4. Mismo comando sin `--dry-run`.
 
 ### ⚠ Charset legacy — caracteres corruptos en origen
 
@@ -550,10 +580,11 @@ tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
 tests/Feature/Anulaciones/AnulacionesTest.php  — 13 tests (venta/recibo/OP registradas con los forms reales y anuladas)
+tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 6 tests (saldo, a favor, dry-run, re-corrida, saldo ya cobrado)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 106 tests, 383 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
+**Total: 112 tests, 423 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -578,6 +609,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_07_01_000002_reconciliar_cheques_modelo_avicola` | Recrea `cheques` + `cheque_movimientos` con el modelo de avícola; quita `pago_ventas.cheque_id` |
 | `2026_09_29_000001_add_procesada_to_compras_table` | `forma_pago`, `procesada`, `procesada_at`, `procesada_por` en `compras` |
 | `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
+| `2026_09_29_000003_add_saldo_inicial_to_ventas_and_compras` | Flag de comprobante de saldo inicial (scope `comerciales()`) |
 
 ---
 
@@ -625,7 +657,7 @@ Desde `/listas-precios/{lista}/precios`:
 ## Pendientes / Próximas fases
 
 ### Inmediatos
-- **Saldos CC legacy** — importar `cccliente` / `ccproveedor` como saldo inicial en `cc_clientes` / `cc_proveedores` (extender `centrogoma:importar`)
+- **Stock legacy al corte** — hoy `articulos.stock` viene de `producto.stock` en la importación de maestros; validar contra el Delphi antes de producción
 
 ### Funcionalidades a portar desde `avicola` (ver `docs/ANALISIS_AVICOLA.md`)
 App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:

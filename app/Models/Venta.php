@@ -18,10 +18,11 @@ class Venta extends Model implements Auditable
         'nro_factura', 'letra_comprobante', 'tipo_cbte', 'pto_vta', 'cae', 'vto_cae',
         'estado', 'tipo', 'moneda', 'cotizacion', 'sucursal',
         'cliente_vtadiaria', 'dni_vtadiaria', 'domicilio_vtadiaria',
-        'tipo_comprobante', 'factura_original_id', 'observacion', 'totalanulado',
+        'tipo_comprobante', 'saldo_inicial', 'factura_original_id', 'observacion', 'totalanulado',
     ];
 
     protected $casts = [
+        'saldo_inicial' => 'boolean',
         'fecha'    => 'date',
         'neto'     => 'float',
         'descuento'=> 'float',
@@ -89,5 +90,15 @@ class Venta extends Model implements Auditable
     public function estaAnulada(): bool
     {
         return $this->estado === 'A';
+    }
+
+    /**
+     * Comprobantes reales: excluye los de saldo inicial (deuda arrastrada del sistema
+     * anterior). Usarlo en todo total o estadística; recibos, órdenes de pago y CC sí
+     * deben verlos.
+     */
+    public function scopeComerciales($query)
+    {
+        return $query->where($query->qualifyColumn('saldo_inicial'), false);
     }
 }

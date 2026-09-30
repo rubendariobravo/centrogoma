@@ -30,6 +30,12 @@
         <env name="DB_USERNAME" value="ruben"/>
         <env name="DB_PASSWORD" value="REDACTED"/>
         <env name="DB_URL" value=""/>
+        <!-- BD legacy de los tests: vacía, la arma cada test. Nunca la BD Delphi real. -->
+        <env name="LEGACY_DB_HOST" value="127.0.0.1"/>
+        <env name="LEGACY_DB_PORT" value="3307"/>
+        <env name="LEGACY_DB_DATABASE" value="centrogoma_legacy_test"/>
+        <env name="LEGACY_DB_USERNAME" value="ruben"/>
+        <env name="LEGACY_DB_PASSWORD" value="REDACTED"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

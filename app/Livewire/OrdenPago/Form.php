@@ -123,6 +123,7 @@ class Form extends Component
                 'id'          => $c->id,
                 'nro_factura' => $c->nro_factura,
                 'letra'       => $c->letra,
+                'saldo_inicial' => (bool) $c->saldo_inicial,
                 'fecha'       => $c->fecha->format('d/m/Y'),
                 'total'       => (float) $c->total,
                 'saldo'       => (float) $c->saldo,

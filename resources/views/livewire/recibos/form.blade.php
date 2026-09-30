@@ -205,7 +205,7 @@
                                                class="w-4 h-4 rounded accent-emerald-700 cursor-pointer">
                                     </td>
                                     <td class="px-4 py-2 font-mono text-xs text-gray-700"
-                                        x-text="'#' + venta.nro_venta"></td>
+                                        x-text="venta.saldo_inicial ? 'Saldo inicial' : '#' + venta.nro_venta"></td>
                                     <td class="px-4 py-2 text-gray-600" x-text="venta.fecha"></td>
                                     <td class="px-4 py-2 text-right text-gray-700"
                                         x-text="fmt(venta.total)"></td>

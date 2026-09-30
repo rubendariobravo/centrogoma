@@ -84,6 +84,7 @@ class Index extends Component
             ->paginate(25);
 
         $totalPeriodo = Venta::query()
+            ->comerciales()
             ->where('estado', '!=', 'A')
             ->when($this->filterDesde, fn ($q) => $q->where('fecha', '>=', $this->filterDesde))
             ->when($this->filterHasta, fn ($q) => $q->where('fecha', '<=', $this->filterHasta))

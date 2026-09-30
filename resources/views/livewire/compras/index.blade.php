@@ -91,7 +91,9 @@
                     @forelse($compras as $compra)
                     <tr class="hover:bg-[#E9ECF0] transition-colors group">
                         <td class="px-4 py-3 font-mono text-xs text-gray-500">
-                            @if($compra->nro_factura)
+                            @if($compra->saldo_inicial)
+                                <span class="ml-1 inline-flex whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-slate-100 text-slate-600">Saldo inicial</span>
+                            @elseif($compra->nro_factura)
                                 <span class="font-medium text-gray-800">{{ $compra->letra }}-{{ $compra->nro_factura }}</span>
                             @else
                                 <span class="text-gray-400">Sin número</span>

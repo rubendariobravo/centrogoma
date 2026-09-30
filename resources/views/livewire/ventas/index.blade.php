@@ -96,6 +96,9 @@
                             @if($venta->letra_comprobante)
                                 <span class="ml-1 text-gray-400">{{ $venta->letra_comprobante }}</span>
                             @endif
+                            @if($venta->saldo_inicial)
+                                <span class="ml-1 inline-flex whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-slate-100 text-slate-600">Saldo inicial</span>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-gray-700">{{ $venta->fecha->format('d/m/Y') }}</td>
                         <td class="px-4 py-3">

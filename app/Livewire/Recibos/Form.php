@@ -118,6 +118,7 @@ class Form extends Component
             ->map(fn ($v) => [
                 'id'        => $v->id,
                 'nro_venta' => $v->nro_venta,
+                'saldo_inicial' => (bool) $v->saldo_inicial,
                 'fecha'     => $v->fecha->format('d/m/Y'),
                 'total'     => (float) $v->total,
                 'saldo'     => (float) $v->saldo,

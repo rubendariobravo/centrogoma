@@ -205,7 +205,7 @@
                                                class="w-4 h-4 rounded accent-amber-700 cursor-pointer">
                                     </td>
                                     <td class="px-4 py-2 font-mono text-xs text-gray-700"
-                                        x-text="compra.letra + '-' + compra.nro_factura"></td>
+                                        x-text="compra.saldo_inicial ? 'Saldo inicial' : compra.letra + '-' + compra.nro_factura"></td>
                                     <td class="px-4 py-2 text-gray-600" x-text="compra.fecha"></td>
                                     <td class="px-4 py-2 text-right text-gray-700"
                                         x-text="fmt(compra.total)"></td>

@@ -27,10 +27,10 @@ class Dashboard extends Component
         $hoy    = today();
         $inicio = now()->startOfWeek();
 
-        $this->ventasHoy    = Venta::whereDate('fecha', $hoy)->where('estado', '!=', 'A')->count();
-        $this->totalHoy     = (float) Venta::whereDate('fecha', $hoy)->where('estado', '!=', 'A')->sum('total');
-        $this->ventasSemana = Venta::whereBetween('fecha', [$inicio, $hoy])->where('estado', '!=', 'A')->count();
-        $this->totalSemana  = (float) Venta::whereBetween('fecha', [$inicio, $hoy])->where('estado', '!=', 'A')->sum('total');
+        $this->ventasHoy    = Venta::comerciales()->whereDate('fecha', $hoy)->where('estado', '!=', 'A')->count();
+        $this->totalHoy     = (float) Venta::comerciales()->whereDate('fecha', $hoy)->where('estado', '!=', 'A')->sum('total');
+        $this->ventasSemana = Venta::comerciales()->whereBetween('fecha', [$inicio, $hoy])->where('estado', '!=', 'A')->count();
+        $this->totalSemana  = (float) Venta::comerciales()->whereBetween('fecha', [$inicio, $hoy])->where('estado', '!=', 'A')->sum('total');
 
         $this->clientesActivos  = Cliente::where('estado', 'A')->count();
         $this->articulosActivos = Articulo::where('estado', 'A')->count();
@@ -41,7 +41,7 @@ class Dashboard extends Component
 
         $this->cajaAbierta = Caja::where('estado', 'abierta')->where('tipo', 'diaria')->where('user_id', auth()->id())->latest()->first();
 
-        $this->ultimasVentas = Venta::with('cliente')
+        $this->ultimasVentas = Venta::comerciales()->with('cliente')
             ->where('estado', '!=', 'A')
             ->latest()
             ->limit(8)
