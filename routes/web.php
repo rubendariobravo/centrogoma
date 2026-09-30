@@ -17,6 +17,8 @@ use App\Livewire\Recibos\Form as RecibosForm;
 use App\Livewire\Proveedores\Index as ProveedoresIndex;
 use App\Livewire\Cajas\Index as CajasIndex;
 use App\Livewire\Cajas\Show as CajasShow;
+use App\Livewire\Gastos\Index as GastosIndex;
+use App\Livewire\Bancos\Index as BancosIndex;
 use App\Livewire\Recibos\Index as RecibosIndex;
 use App\Livewire\Rubros\Index as RubrosIndex;
 use App\Livewire\Marcas\Index as MarcasIndex;
@@ -91,6 +93,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Caja y Finanzas
     Route::get('cajas', CajasIndex::class)->name('cajas');
     Route::get('cajas/{caja}', CajasShow::class)->name('cajas.show');
+    Route::get('gastos', GastosIndex::class)->name('gastos');
+    Route::get('bancos', BancosIndex::class)->name('bancos');
     Route::get('cheques', ChequesIndex::class)->name('cheques');
     Route::get('cc-clientes', CcClientesIndex::class)->name('cc-clientes');
     Route::get('cc-proveedores', CcProveedoresIndex::class)->name('cc-proveedores');

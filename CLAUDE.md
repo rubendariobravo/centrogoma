@@ -14,7 +14,8 @@ La app es una **refactorización** — se tomó como base la app `Avicola` (desa
 | | |
 |---|---|
 | **URL local** | `http://centrogoma.test` |
-| **Admin** | `rubendario.bravo@gmail.com` / `12345678` (role: `super-admin`) |
+| **Admin** | `rubendario.bravo@gmail.com` (role: `admin`; la contraseña ya no es la original) |
+| **Usuario testing** | `testing@centrogoma.test` (role: `admin`) — credenciales en `database/seeders/UsuarioTestingSeeder.php`; recrear con `php artisan db:seed --class=UsuarioTestingSeeder` |
 | **BD nueva** | `centrogoma` — MySQL puerto **3307** |
 | **BD legacy** | `centro_goma` — MySQL puerto **3306** (read-only, Delphi XE5) |
 | **Sistema legacy** | `H:\Desarrollo\centrogoma24` (Delphi XE5, solo lectura) |
@@ -42,7 +43,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (84 tests, 267 assertions — todos pasan)
+# Correr tests (93 tests, 295 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -92,6 +93,8 @@ Tablas relevantes de `centro_goma` y su mapeo a la BD nueva:
 | `producto` | 7.187 | `articulos` + `articulo_precios` | ✅ Importado |
 | `cliente` | 6.647 | `clientes` | ✅ Importado |
 | `proveedor` | 251 | `proveedores` | ✅ Importado |
+| `plan_cuenta` | 28 | `categorias_gasto` | ✅ Importado (24; se omiten 25–28, que no son gastos) |
+| `banco` | 10 | `bancos` | — Cubierto por los 16 bancos sembrados |
 | `cccliente` | ~500K | `cc_clientes` (saldo inicial por cliente) | ⏳ Pendiente |
 | `ccproveedor` | — | `cc_proveedores` (saldo inicial por proveedor) | ⏳ Pendiente |
 
@@ -101,7 +104,7 @@ Implementado en `app/Console/Commands/ImportarLegacy.php`.
 
 ```bash
 php artisan centrogoma:importar [tabla] [--dry-run] [--force]
-# tabla: categorias | productos | clientes | proveedores  (omitir = todas, en orden)
+# tabla: categorias | productos | clientes | proveedores | plan_cuenta  (omitir = todas, en orden)
 # --dry-run : muestra qué se haría sin escribir nada
 # --force   : sobrescribe registros ya importados (update por legacy_id)
 ```
@@ -223,6 +226,8 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 | **Caja y Finanzas** | | |
 | `GET /cajas` | `Cajas\Index` | `cajas` |
 | `GET /cajas/{caja}` | `Cajas\Show` | `cajas.show` |
+| `GET /gastos` | `Gastos\Index` (+ modal ABM de categorías) | `gastos` |
+| `GET /bancos` | `Bancos\Index` | `bancos` |
 | `GET /cheques` | `Cheques\Index` | `cheques` |
 | `GET /cc-clientes` | `CcClientes\Index` | `cc-clientes` |
 | `GET /cc-proveedores` | `CcProveedores\Index` | `cc-proveedores` |
@@ -492,6 +497,7 @@ Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 | `RolesAndPermissionsSeeder` | `migrate:fresh --seed` | Siempre primero |
 | `ListaPrecioSeeder` | `migrate:fresh --seed` | Crea lista default (Minorista) y otras |
 | `DatosInicialSeeder` | `migrate:fresh --seed` | TipoIva, comprobantes AFIP, cliente "Consumidor Final" |
+| `UsuarioTestingSeeder` | manual (`--class`) | Usuario `testing@centrogoma.test` con rol admin; no corre en producción |
 
 **En producción** (datos ya existentes): nunca usar `migrate:fresh`. Solo correr migraciones incrementales.
 
@@ -525,11 +531,11 @@ tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
-tests/Feature/Caja/                             — 14 tests (CajaService, transferencias, detalle de caja)
+tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 84 tests, 267 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
+**Total: 93 tests, 295 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
 
 ---
 
@@ -553,6 +559,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_07_01_000001_create_bancos_table` | Catálogo de bancos |
 | `2026_07_01_000002_reconciliar_cheques_modelo_avicola` | Recrea `cheques` + `cheque_movimientos` con el modelo de avícola; quita `pago_ventas.cheque_id` |
 | `2026_09_29_000001_add_procesada_to_compras_table` | `forma_pago`, `procesada`, `procesada_at`, `procesada_por` en `compras` |
+| `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
 
 ---
 
@@ -606,7 +613,8 @@ Desde `/listas-precios/{lista}/precios`:
 App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:
 - ✅ CajaService, ChequeService, CompraService (portados)
 - ✅ UI de caja — `Cajas\Index` (apertura con cierre anterior, cajas general/banco, transferencias, ajustes, cierre con transferencia) + `Cajas\Show` (libro con saldo corrido en efectivo, pestañas por documento)
-- **Gastos** (`/gastos`, modelos ya creados), **Bancos** (`/bancos`, tabla ya sembrada), **Anticipos**, **Estadisticas**
+- ✅ **Gastos** (egreso de caja vía CajaService; editar/eliminar revierte) y **Bancos**
+- **Anticipos**, **Estadisticas**
 - **Anular venta / recibo / OP** revirtiendo caja y CC vía `CajaService::revertirMovimientosDe()`
 - **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último
 

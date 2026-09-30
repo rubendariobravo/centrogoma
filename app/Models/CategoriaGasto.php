@@ -10,7 +10,7 @@ class CategoriaGasto extends Model
 {
     protected $table = 'categorias_gasto';
 
-    protected $fillable = ['nombre', 'cuenta_contable_id', 'activo'];
+    protected $fillable = ['nombre', 'cuenta_contable_id', 'activo', 'legacy_id'];
 
     protected $casts = ['activo' => 'boolean'];
 

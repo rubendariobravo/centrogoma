@@ -39,17 +39,17 @@
             {{-- Badge --}}
             <div class="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
-                <span class="text-white/80 text-xs font-medium tracking-wide">Sistema de Gestión Avícola</span>
+                <span class="text-white/80 text-xs font-medium tracking-wide">Sistema de Gestión Comercial</span>
             </div>
 
             {{-- Heading --}}
             <h1 class="text-3xl xl:text-4xl font-bold text-white leading-tight mb-4">
-                Gestión Mayorista y Minorista <span class="text-amber-400">Avícola</span>
+                Gestión comercial de <span class="text-amber-400">{{ config('app.name') }}</span>
             </h1>
 
             <p class="text-white/55 text-sm xl:text-base leading-relaxed mb-8">
-                Plataforma ERP para la administración integral de tu negocio avícola:
-                ventas, compras, producción, stock y finanzas en un solo lugar.
+                Plataforma ERP para la administración integral del negocio:
+                ventas, presupuestos, compras, stock, cheques y finanzas en un solo lugar.
             </p>
 
             {{-- Feature cards --}}
@@ -61,7 +61,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
                     </div>
-                    <p class="text-white text-sm font-semibold leading-tight">Ventas & Compras</p>
+                    <p class="text-white text-sm font-semibold leading-tight">Ventas & Presupuestos</p>
                     <p class="text-white/45 text-xs mt-0.5">Mayorista y minorista</p>
                 </div>
 
@@ -71,8 +71,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>
                     </div>
-                    <p class="text-white text-sm font-semibold leading-tight">Stock & Producción</p>
-                    <p class="text-white/45 text-xs mt-0.5">Control en tiempo real</p>
+                    <p class="text-white text-sm font-semibold leading-tight">Stock & Precios</p>
+                    <p class="text-white/45 text-xs mt-0.5">Listas y precios por cantidad</p>
                 </div>
 
                 <div class="rounded-xl p-4 border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/8 transition-colors">
@@ -91,8 +91,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
                     </div>
-                    <p class="text-white text-sm font-semibold leading-tight">Caja & Finanzas</p>
-                    <p class="text-white/45 text-xs mt-0.5">Apertura y cierre diario</p>
+                    <p class="text-white text-sm font-semibold leading-tight">Caja & Cheques</p>
+                    <p class="text-white/45 text-xs mt-0.5">Caja diaria, cartera y bancos</p>
                 </div>
 
             </div>
@@ -118,7 +118,7 @@
         {{-- Logo móvil --}}
         <div class="lg:hidden mb-8 text-center">
             <img src="{{ asset('images/logo-rdb-azul.png') }}" alt="RDB" class="h-8 mx-auto mb-2">
-            <p class="text-gray-500 text-sm">Sistema de Gestión Avícola</p>
+            <p class="text-gray-500 text-sm">{{ config('app.name') }} — Gestión Comercial</p>
         </div>
 
         <div class="w-full max-w-sm">

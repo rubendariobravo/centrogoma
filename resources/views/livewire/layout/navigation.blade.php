@@ -125,7 +125,7 @@ new class extends Component
         </div>
 
         {{-- CAJA & FINANZAS --}}
-        <div x-data="{ open: {{ $isGroup(['cajas*','cc-clientes*','cc-proveedores*','cheques*']) ? 'true' : 'false' }} }">
+        <div x-data="{ open: {{ $isGroup(['cajas*','gastos*','bancos*','cc-clientes*','cc-proveedores*','cheques*']) ? 'true' : 'false' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
                 <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
@@ -142,6 +142,9 @@ new class extends Component
                 <a href="{{ route('cajas') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('cajas*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Cajas
                 </a>
+                <a href="{{ route('gastos') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('gastos*') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Gastos
+                </a>
                 <a href="{{ route('cc-clientes') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('cc-clientes*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> CC Clientes
                 </a>
@@ -150,6 +153,9 @@ new class extends Component
                 </a>
                 <a href="{{ route('cheques') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('cheques*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Cheques
+                </a>
+                <a href="{{ route('bancos') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('bancos*') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Bancos
                 </a>
             </div>
         </div>

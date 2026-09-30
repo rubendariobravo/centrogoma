@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Articulo;
 use App\Models\ArticuloPrecio;
+use App\Models\CategoriaGasto;
 use App\Models\Cliente;
 use App\Models\ListaPrecio;
 use App\Models\Proveedor;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 class ImportarLegacy extends Command
 {
     protected $signature = 'centrogoma:importar
-                            {tabla? : categorias|productos|clientes|proveedores (omitir = todo)}
+                            {tabla? : categorias|productos|clientes|proveedores|plan_cuenta (omitir = todo)}
                             {--dry-run : Mostrar qué se haría sin guardar nada}
                             {--force : Sobrescribir registros ya importados}';
 
@@ -51,7 +52,7 @@ class ImportarLegacy extends Command
 
         $tablas = $tabla
             ? [$tabla]
-            : ['categorias', 'productos', 'clientes', 'proveedores'];
+            : ['categorias', 'productos', 'clientes', 'proveedores', 'plan_cuenta'];
 
         foreach ($tablas as $t) {
             $this->resetContadores();
@@ -60,6 +61,7 @@ class ImportarLegacy extends Command
                 'productos'   => $this->importarProductos(),
                 'clientes'    => $this->importarClientes(),
                 'proveedores' => $this->importarProveedores(),
+                'plan_cuenta' => $this->importarPlanCuenta(),
                 default       => $this->error("Tabla desconocida: {$t}"),
             };
             $this->resumen($t);
@@ -74,6 +76,63 @@ class ImportarLegacy extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  PLAN_CUENTA → CATEGORIAS_GASTO
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Cuentas de `plan_cuenta` que en Delphi se usaban para movimientos de caja que NO son
+     * gastos. En la app nueva tienen su propio circuito, así que no se importan:
+     * 25 APORTE DE SOCIO (ajuste ingreso), 26 CHEQUES COBRADOS (ChequeService),
+     * 27 PROVEEDORES (Órdenes de Pago), 28 DEPÓSITO BANCARIO (transferencia entre cajas).
+     */
+    private const PLAN_CUENTA_NO_GASTO = [25, 26, 27, 28];
+
+    private function importarPlanCuenta(): void
+    {
+        $this->info('Importando plan_cuenta → categorias_gasto...');
+
+        $rows = DB::connection('centro_goma_legacy')
+            ->table('plan_cuenta')
+            ->orderBy('id_plan')
+            ->get();
+
+        foreach ($rows as $plan) {
+            $nombre = trim((string) $plan->plan_cuenta);
+            if ($nombre === '' || in_array((int) $plan->id_plan, self::PLAN_CUENTA_NO_GASTO, true)) {
+                $this->skipped++;
+                continue;
+            }
+
+            $exists = CategoriaGasto::where('legacy_id', $plan->id_plan)->first();
+            if ($exists && ! $this->force) {
+                $this->skipped++;
+                continue;
+            }
+
+            if ($this->dryRun) {
+                $this->line("  [DRY] Categoría gasto: {$nombre} (legacy #{$plan->id_plan})");
+                $this->created++;
+                continue;
+            }
+
+            if ($exists) {
+                $exists->update(['nombre' => $nombre]);
+                $this->updated++;
+            } else {
+                // Si ya se creó a mano con el mismo nombre, se vincula en vez de duplicar.
+                $porNombre = CategoriaGasto::whereNull('legacy_id')->where('nombre', $nombre)->first();
+                if ($porNombre) {
+                    $porNombre->update(['legacy_id' => $plan->id_plan]);
+                    $this->updated++;
+                } else {
+                    CategoriaGasto::create(['nombre' => $nombre, 'activo' => true, 'legacy_id' => $plan->id_plan]);
+                    $this->created++;
+                }
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
