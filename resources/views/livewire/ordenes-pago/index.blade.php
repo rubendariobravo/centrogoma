@@ -133,6 +133,14 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
                                 </a>
+                                @if($orden->estado !== 'A' && auth()->user()->hasRole(['super-admin', 'admin']))
+                                <button type="button" wire:click="confirmarAnular({{ $orden->id }})"
+                                        class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Anular">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -153,4 +161,9 @@
         </div>
         @endif
     </div>
+
+    {{-- Modal anular orden de pago --}}
+    @if($anularId)
+    <x-modal-anular titulo="Anular orden de pago" descripcion="Las compras pagadas vuelven a quedar pendientes, se suma la deuda al proveedor, se revierte el egreso de caja y se anula el cheque propio emitido (si lo hubo)." />
+    @endif
 </div>

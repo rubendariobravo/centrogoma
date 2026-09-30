@@ -4,6 +4,8 @@ namespace App\Livewire\Ventas;
 
 use App\Models\Cliente;
 use App\Models\Venta;
+use App\Livewire\Concerns\AnulaComprobante;
+use App\Services\Anulacion\AnulacionService;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -12,6 +14,12 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use AnulaComprobante;
+
+    /** Datos del modal de anulación. */
+    public bool   $anularConCae  = false;
+    public array  $anularCobros  = [];
+    public string $anularCobrado = '';
 
     public string $search       = '';
     public string $filterEstado = '';
@@ -36,6 +44,27 @@ class Index extends Component
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    protected function alAbrirAnulacion(int $id): void
+    {
+        $this->anularConCae = ! empty(Venta::find($id)?->cae);
+
+        $cobros = app(AnulacionService::class)->cobrosAplicados($id);
+        $this->anularCobros = $cobros->map(fn ($c) => [
+            'nro'   => (int) $c->nro_recibo,
+            'fecha' => $c->fecha ? \Illuminate\Support\Carbon::parse($c->fecha)->format('d/m/Y') : '',
+            'monto' => number_format((float) $c->monto_aplicado, 2, ',', '.'),
+        ])->all();
+        $this->anularCobrado = number_format((float) $cobros->sum('monto_aplicado'), 2, ',', '.');
+    }
+
+    protected function ejecutarAnulacion(int $id, string $motivo): string
+    {
+        $venta = Venta::findOrFail($id);
+        app(AnulacionService::class)->anularVenta($venta, $motivo);
+
+        return "Venta #{$venta->nro_venta} anulada. Se revirtió stock, caja y cuenta corriente.";
     }
 
     public function render()

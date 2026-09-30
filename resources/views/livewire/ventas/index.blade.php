@@ -171,6 +171,14 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
                                     </svg>
                                 </a>
+                                @if($venta->estado !== 'A' && auth()->user()->hasRole(['super-admin', 'admin']))
+                                <button type="button" wire:click="confirmarAnular({{ $venta->id }})"
+                                        class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Anular">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -191,4 +199,25 @@
         </div>
         @endif
     </div>
+
+    {{-- Modal anular venta --}}
+    @if($anularId)
+    <x-modal-anular titulo="Anular venta" descripcion="Se devuelve el stock, se revierte la caja y la cuenta corriente del cliente, y se anulan los cheques recibidos en la venta.">
+        @if($anularConCae)
+        <div class="mt-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
+            La venta tiene CAE: requiere nota de crédito electrónica, que todavía no está implementada.
+        </div>
+        @endif
+        @if(count($anularCobros))
+        <div class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
+            <p class="font-medium">La venta tiene cobros aplicados (${{ $anularCobrado }}). Anule primero estos recibos:</p>
+            <ul class="mt-1 list-disc list-inside">
+                @foreach($anularCobros as $c)
+                    <li>Recibo #{{ $c['nro'] }} del {{ $c['fecha'] }} — ${{ $c['monto'] }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
+    </x-modal-anular>
+    @endif
 </div>

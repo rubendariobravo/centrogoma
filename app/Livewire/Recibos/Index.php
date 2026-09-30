@@ -4,6 +4,8 @@ namespace App\Livewire\Recibos;
 
 use App\Models\Cliente;
 use App\Models\Recibo;
+use App\Livewire\Concerns\AnulaComprobante;
+use App\Services\Anulacion\AnulacionService;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -12,6 +14,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use AnulaComprobante;
 
     public string $search        = '';
     public string $filterEstado  = '';
@@ -36,6 +39,14 @@ class Index extends Component
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    protected function ejecutarAnulacion(int $id, string $motivo): string
+    {
+        $recibo = Recibo::findOrFail($id);
+        app(AnulacionService::class)->anularRecibo($recibo, $motivo);
+
+        return "Recibo #{$recibo->nro_recibo} anulado. Se revirtió la cuenta corriente del cliente y la caja.";
     }
 
     public function render()

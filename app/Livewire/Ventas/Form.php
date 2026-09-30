@@ -777,18 +777,33 @@ class Form extends Component
             }
         }
 
-        // Actualizar totales de caja (libro de movimientos + contador cacheado)
+        // Libro de caja: un asiento por cada forma de pago usada, con su importe. Un único
+        // asiento por el total imputado a la primera forma de pago rompía el arqueo en los
+        // pagos mixtos (ej. efectivo + tarjeta contaba todo como efectivo). La suma sigue
+        // siendo `total`, así que `cajas.total_ventas` no cambia.
         if ($this->cajaId && ($caja = Caja::find($this->cajaId))) {
-            app(CajaService::class)->registrarMovimiento(
-                $caja, 'ingreso', 'venta', $total,
-                [
-                    'forma_pago'      => $formaPagoPrincipal,
-                    'referencia_type' => Venta::class,
-                    'referencia_id'   => $venta->id,
-                    'descripcion'     => "Venta #{$nroVenta}",
-                    'fecha'           => $this->fecha,
-                ]
-            );
+            $cajaService = app(CajaService::class);
+            $opts = [
+                'referencia_type' => Venta::class,
+                'referencia_id'   => $venta->id,
+                'descripcion'     => "Venta #{$nroVenta}",
+                'fecha'           => $this->fecha,
+            ];
+
+            foreach ($pagos as $pago) {
+                if ($pago['forma_pago'] === 'cuenta_corriente' || (float) $pago['monto'] <= 0) {
+                    continue;
+                }
+                $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', (float) $pago['monto'],
+                    [...$opts, 'forma_pago' => $pago['forma_pago']]);
+            }
+
+            // Lo que quedó a crédito entra al libro con forma cuenta_corriente: suma a
+            // total_ventas pero no cuenta como efectivo en el arqueo.
+            if ($saldo > 0.001) {
+                $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', $saldo,
+                    [...$opts, 'forma_pago' => 'cuenta_corriente']);
+            }
         }
 
         if ($hasCC && $saldo > 0 && $this->cliente_id) {
@@ -815,7 +830,7 @@ class Form extends Component
         if ($this->presupuestoOrigenId) {
             Presupuesto::where('id', $this->presupuestoOrigenId)
                 ->whereIn('estado', ['A', 'V'])
-                ->update(['estado' => 'F']);
+                ->update(['estado' => 'F', 'venta_id' => $venta->id]);
         }
 
         session()->flash('success', "Venta #{$nroVenta} registrada correctamente.");

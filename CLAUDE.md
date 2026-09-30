@@ -43,7 +43,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (93 tests, 295 assertions — todos pasan)
+# Correr tests (106 tests, 383 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -293,6 +293,23 @@ Compras **no** admite cheque como forma de pago: se carga en CC y se paga con un
   `revertir()` lo deshace (no revierte costo). `Compras\Form` registra y procesa en una transacción;
   `Compras\Index` anula con motivo (avisa si hay OPs aplicadas: lo pagado queda como crédito).
 - Formas de pago: tabla `formas_pago` (`FormaPago::esCuentaCorriente()`, `esEfectivo()`, `activosParaSelect()`).
+- **Ventas en caja:** un `MovimientoCaja` por cada forma de pago usada (+ uno con `forma_pago=cuenta_corriente`
+  por el saldo a crédito). Nunca un único asiento por el total: rompe el arqueo de efectivo en pagos mixtos.
+
+## Anulaciones — `App\Services\Anulacion\AnulacionService`
+
+Ventas, recibos y órdenes de pago se anulan desde sus listados (botón visible solo para `admin`/`super-admin`,
+trait `App\Livewire\Concerns\AnulaComprobante` + componente `<x-modal-anular>`). Nada se borra: se revierten
+los efectos, se marca `estado='A'` y el motivo queda en `observacion`. Las reglas que impiden anular se
+lanzan como `AnulacionException` y se muestran en el modal.
+
+| Comprobante | Revierte | Bloquea si |
+|---|---|---|
+| Venta | stock (+`movimientos_articulos`), movimientos de caja, saldo CC del cliente, cheques en cartera, presupuesto origen vuelve a `A` | tiene recibos vigentes aplicados (anular primero el recibo); tiene CAE (requiere NC — AFIP pendiente); cheque rechazado/endosado/vendido |
+| Recibo | saldo de las ventas cobradas (vuelven a `P`), deuda del cliente + asiento CC, caja, cheque recibido | cheque rechazado/endosado/vendido |
+| Orden de Pago | saldo de las compras (vuelven a `P`), deuda del proveedor + asiento CC, egreso de caja, cheque propio | — |
+
+Compras se anulan con `CompraService::revertir()` desde `Compras\Index` (flujo propio, avisa OPs aplicadas).
 
 ---
 
@@ -532,10 +549,11 @@ tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
+tests/Feature/Anulaciones/AnulacionesTest.php  — 13 tests (venta/recibo/OP registradas con los forms reales y anuladas)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 93 tests, 295 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
+**Total: 106 tests, 383 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307).
 
 ---
 
@@ -615,7 +633,8 @@ App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún aus
 - ✅ UI de caja — `Cajas\Index` (apertura con cierre anterior, cajas general/banco, transferencias, ajustes, cierre con transferencia) + `Cajas\Show` (libro con saldo corrido en efectivo, pestañas por documento)
 - ✅ **Gastos** (egreso de caja vía CajaService; editar/eliminar revierte) y **Bancos**
 - **Anticipos**, **Estadisticas**
-- **Anular venta / recibo / OP** revirtiendo caja y CC vía `CajaService::revertirMovimientosDe()`
+- ✅ Anular venta / recibo / OP (`AnulacionService`)
+- **Filtros de cliente/proveedor** en Recibos/OP/Ventas cargan los 6.6K clientes en un `<select>` → reemplazar por buscador
 - **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último
 
 ### Migración datos legacy — ✅ completado
