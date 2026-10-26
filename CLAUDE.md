@@ -14,7 +14,7 @@ La app es una **refactorización** — se tomó como base la app `Avicola` (desa
 | | |
 |---|---|
 | **URL local** | `http://centrogoma.test` |
-| **Producción** | `https://centrogoma.rdbti.com` — VPS Vultr `64.176.8.172` (compartido con FrangoData). Instalación y actualización: `docs/DESPLIEGUE_VPS.md` |
+| **Producción** | `https://centrogoma.rdbti.com` — VPS Vultr `64.176.8.172` (compartido con FrangoData, frangoadmin, isdm, mascotacenter). Instalado 26/10/2026 con datos del Delphi al corte 28/05/2026 (ensayo; se reimporta en la salida real). Actualizar: `sudo bash /var/www/centrogoma/deploy/actualizar.sh`. Guía: `docs/DESPLIEGUE_VPS.md` |
 | **Admin** | `rubendario.bravo@gmail.com` (role: `admin`; la contraseña ya no es la original) |
 | **Usuario testing** | `testing@centrogoma.test` (role: `admin`) — credenciales en `database/seeders/UsuarioTestingSeeder.php`; recrear con `php artisan db:seed --class=UsuarioTestingSeeder` |
 | **BD nueva** | `centrogoma` — MySQL puerto **3307** |
@@ -172,6 +172,10 @@ manualmente** desde `/rubros`, `/articulos`, `/clientes` cuando se detecten.
 ---
 
 ## Arquitectura
+
+### Compatibilidad Linux (producción)
+
+El servidor es Linux: **las mayúsculas importan** en clases (`TipoIva`, no `Tipoiva`), vistas y rutas de archivo. En Windows/Laragon un error así pasa desapercibido.
 
 ### Frontend
 
