@@ -123,4 +123,20 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Administrador inicial
+    |--------------------------------------------------------------------------
+    |
+    | Lo crea RolesAndPermissionsSeeder (rol admin) solo si email y contraseña
+    | están definidos. Nunca hay un usuario con contraseña por defecto.
+    |
+    */
+
+    'admin_inicial' => [
+        'email'    => env('CENTROGOMA_ADMIN_EMAIL'),
+        'password' => env('CENTROGOMA_ADMIN_PASSWORD'),
+        'name'     => env('CENTROGOMA_ADMIN_NAME', 'Administrador'),
+    ],
+
 ];

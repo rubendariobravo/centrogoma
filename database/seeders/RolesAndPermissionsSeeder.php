@@ -110,16 +110,26 @@ class RolesAndPermissionsSeeder extends Seeder
             'ver_compras',
         ]);
 
-        // Usuario admin por defecto
-        $adminUser = User::firstOrNew(['email' => 'admin@avicola.test']);
-        if (!$adminUser->exists) {
-            $adminUser->name     = 'Administrador';
-            $adminUser->password = bcrypt('password');
+        $this->command->info('✓ Roles y permisos creados.');
+
+        // Administrador inicial desde el .env (CENTROGOMA_ADMIN_EMAIL / _PASSWORD). Sin esos
+        // valores no se crea ningún usuario: nunca una cuenta con contraseña conocida.
+        $email    = config('app.admin_inicial.email');
+        $password = config('app.admin_inicial.password');
+
+        if (! $email || ! $password) {
+            $this->command->warn('  Sin CENTROGOMA_ADMIN_EMAIL / CENTROGOMA_ADMIN_PASSWORD: no se crea administrador.');
+            return;
+        }
+
+        $adminUser = User::firstOrNew(['email' => $email]);
+        if (! $adminUser->exists) {
+            $adminUser->name              = config('app.admin_inicial.name');
+            $adminUser->password          = bcrypt($password);
+            $adminUser->email_verified_at = now();
             $adminUser->saveQuietly();
+            $this->command->info("  Administrador creado: {$email}");
         }
         $adminUser->syncRoles(['admin']);
-
-        $this->command->info('✓ Roles y permisos creados.');
-        $this->command->info('  admin@avicola.test / password');
     }
 }

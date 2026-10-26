@@ -14,6 +14,7 @@ La app es una **refactorización** — se tomó como base la app `Avicola` (desa
 | | |
 |---|---|
 | **URL local** | `http://centrogoma.test` |
+| **Producción** | `https://centrogoma.rdbti.com` — VPS Vultr `64.176.8.172` (compartido con FrangoData). Instalación y actualización: `docs/DESPLIEGUE_VPS.md` |
 | **Admin** | `rubendario.bravo@gmail.com` (role: `admin`; la contraseña ya no es la original) |
 | **Usuario testing** | `testing@centrogoma.test` (role: `admin`) — credenciales en `database/seeders/UsuarioTestingSeeder.php`; recrear con `php artisan db:seed --class=UsuarioTestingSeeder` |
 | **BD nueva** | `centrogoma` — MySQL puerto **3307** |
@@ -148,6 +149,8 @@ Corte de prueba 29/09/2026 (BD legacy desactualizada): 42 clientes deudores ($27
 (−$1.247.548,49), 46 proveedores acreedores ($39.875.624,80), 14 a favor nuestro (−$2.474.621,44).
 
 #### Salida a producción (con la BD legacy actualizada a esa fecha)
+
+En el servidor (detalle en `docs/DESPLIEGUE_VPS.md` §4):
 
 1. Apuntar `LEGACY_DB_*` del `.env` a la BD Delphi actualizada.
 2. `php artisan centrogoma:importar --force` — maestros (altas nuevas + cambios).
@@ -547,7 +550,7 @@ Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 
 | Seeder | Cuándo | Notas |
 |--------|--------|-------|
-| `RolesAndPermissionsSeeder` | `migrate:fresh --seed` | Siempre primero |
+| `RolesAndPermissionsSeeder` | `migrate:fresh --seed` | Siempre primero. Crea el admin inicial solo si están `CENTROGOMA_ADMIN_EMAIL`/`_PASSWORD` en el `.env` (nunca una cuenta con contraseña por defecto) |
 | `ListaPrecioSeeder` | `migrate:fresh --seed` | Crea lista default (Minorista) y otras |
 | `DatosInicialSeeder` | `migrate:fresh --seed` | TipoIva, comprobantes AFIP, cliente "Consumidor Final" |
 | `UsuarioTestingSeeder` | manual (`--class`) | Usuario `testing@centrogoma.test` con rol admin; no corre en producción |
