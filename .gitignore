@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Claude Code: configuración local y worktrees
+.claude/settings.local.json
+.claude/worktrees/
