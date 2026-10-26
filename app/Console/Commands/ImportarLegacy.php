@@ -9,7 +9,7 @@ use App\Models\Cliente;
 use App\Models\ListaPrecio;
 use App\Models\Proveedor;
 use App\Models\Rubro;
-use App\Models\Tipoiva;
+use App\Models\TipoIva;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -470,14 +470,14 @@ class ImportarLegacy extends Command
         ];
 
         foreach ($legacy as $legacyId => $codigoAfip) {
-            $tipoiva = Tipoiva::where('codigo_afip', $codigoAfip)->first();
+            $tipoiva = TipoIva::where('codigo_afip', $codigoAfip)->first();
             if ($tipoiva) {
                 $this->tipoivaMap[$legacyId] = $tipoiva->id;
             }
         }
 
         // Fallback: si no existe mapeo, usar Consumidor Final
-        $cf = Tipoiva::where('codigo_afip', '05')->first();
+        $cf = TipoIva::where('codigo_afip', '05')->first();
         if ($cf && ! isset($this->tipoivaMap[5])) {
             $this->tipoivaMap[5] = $cf->id;
         }
