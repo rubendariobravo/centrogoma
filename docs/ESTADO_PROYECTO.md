@@ -28,7 +28,7 @@
 - **URL:** http://avicola.test  
 - **Admin:** admin@avicola.test / password  
 - **Vendedor:** vendedor@avicola.test / password  
-- **DB:** DB_DATABASE=avicola, DB_PORT=3307, DB_USERNAME=ruben, DB_PASSWORD=REDACTED
+- **DB:** DB_DATABASE=avicola, DB_PORT=3307, DB_USERNAME=ruben, DB_PASSWORD=(ver .env)
 
 ---
 

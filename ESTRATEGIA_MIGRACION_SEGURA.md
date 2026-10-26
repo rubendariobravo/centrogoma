@@ -99,7 +99,7 @@ LEGACY_DB_HOST=127.0.0.1
 LEGACY_DB_PORT=3306
 LEGACY_DB_DATABASE=centro_goma
 LEGACY_DB_USERNAME=ruben
-LEGACY_DB_PASSWORD=REDACTED
+LEGACY_DB_PASSWORD=          # ver .env (no versionar contraseñas)
 ```
 
 ### PASO 4: Agregar conexión legacy en config/database.php
