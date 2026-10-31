@@ -25,15 +25,11 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
-        <env name="DB_PORT" value="3307"/>
         <env name="DB_DATABASE" value="centrogoma_test"/>
-        <env name="DB_USERNAME" value="ruben"/>
         <env name="DB_URL" value=""/>
-        <!-- BD legacy de los tests: vacía, la arma cada test. Nunca la BD Delphi real. Las contraseñas (DB_PASSWORD, LEGACY_DB_PASSWORD) se toman del .env: no versionarlas acá. -->
+        <!-- BD legacy de los tests: vacía, la arma cada test. Nunca la BD Delphi real. Puertos, usuarios y contraseñas (DB_*, LEGACY_DB_*) se toman del .env de cada PC: solo los nombres de las BD quedan fijos acá. -->
         <env name="LEGACY_DB_HOST" value="127.0.0.1"/>
-        <env name="LEGACY_DB_PORT" value="3307"/>
         <env name="LEGACY_DB_DATABASE" value="centrogoma_legacy_test"/>
-        <env name="LEGACY_DB_USERNAME" value="ruben"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

@@ -20,9 +20,9 @@ La app es una **refactorización** — se tomó como base la app `Avicola` (desa
 | **Producción** | `https://centrogoma.rdbti.com` — VPS Vultr `64.176.8.172` (compartido con FrangoData, frangoadmin, isdm, mascotacenter). Instalado 26/10/2026 con datos del Delphi al corte 28/05/2026 (ensayo; se reimporta en la salida real). Actualizar: `sudo bash /var/www/centrogoma/deploy/actualizar.sh`. Guía: `docs/DESPLIEGUE_VPS.md` |
 | **Admin** | `rubendario.bravo@gmail.com` (role: `admin`; la contraseña ya no es la original) |
 | **Usuario testing** | `testing@centrogoma.test` (role: `admin`) — credenciales en `database/seeders/UsuarioTestingSeeder.php`; recrear con `php artisan db:seed --class=UsuarioTestingSeeder` |
-| **BD nueva** | `centrogoma` — MySQL puerto **3307** |
-| **BD legacy** | `centro_goma` — MySQL puerto **3306** (read-only, Delphi XE5) |
-| **Sistema legacy** | `H:\Desarrollo\centrogoma24` (Delphi XE5, solo lectura) |
+| **BD nueva** | `centrogoma` — MySQL local puerto **3306** (misma instancia que la legacy desde 31/10/2026) |
+| **BD legacy** | `centro_goma` — MySQL local puerto **3306** (read-only, Delphi XE5; restaurada al 31/10/2026) |
+| **Sistema legacy** | `C:\desarrollo\centrogoma24` (Delphi XE5, solo lectura) |
 
 ---
 
@@ -54,9 +54,9 @@ php artisan test
 php artisan test --filter="Pricing|Listas|Clientes|FormPriceEngine"
 ```
 
-> ⚠️ **Los tests usan `RefreshDatabase` contra la BD `centrogoma_test`** (puerto 3307), definida en
-> `phpunit.xml` (sus `<env>` pisan al `.env`). No apuntarla nunca a `centrogoma` (borra los datos
-> importados) ni a `avicola` (BD de la otra app, a la que apuntaba originalmente).
+> ⚠️ **Los tests usan `RefreshDatabase` contra la BD `centrogoma_test`**, cuyo nombre fija
+> `phpunit.xml` (sus `<env>` pisan al `.env`); puerto, usuario y contraseña salen del `.env`. No apuntarla
+> nunca a `centrogoma` (borra los datos importados) ni a `avicola` (BD de la otra app, a la que apuntaba originalmente).
 
 ---
 
@@ -66,7 +66,7 @@ Configurada en `config/database.php` como `centro_goma_legacy`. Variables en `.e
 
 ```env
 LEGACY_DB_HOST=127.0.0.1
-LEGACY_DB_PORT=3306        # Puerto estándar MySQL — instancia distinta de la nueva
+LEGACY_DB_PORT=3306        # En desarrollo, la misma instancia que la BD nueva
 LEGACY_DB_DATABASE=centro_goma
 LEGACY_DB_USERNAME=ruben
 LEGACY_DB_PASSWORD=          # ver .env (no versionar contraseñas)
@@ -602,7 +602,7 @@ tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avíco
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 133 tests, 492 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto 3307). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 133 tests, 492 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 

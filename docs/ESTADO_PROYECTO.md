@@ -16,7 +16,7 @@ la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hec
 | Acceso al servidor | `ssh -i ~/.ssh/frangodata_vultr ruben@64.176.8.172`, después `sudo -i` (sudo sin contraseña) |
 | Admin de producción | `rubendario.bravo@gmail.com` — contraseña en `/root/credenciales-centrogoma.txt` (línea `APP admin`) |
 | Secretos del servidor | `/root/credenciales-centrogoma.txt` (MySQL `centrogoma`, `centrogoma_legacy_ro`, admin) |
-| Sistema legacy | Delphi XE5 en `H:\Desarrollo\centrogoma24` (solo lectura) · BD `centro_goma` |
+| Sistema legacy | Delphi XE5 en `C:\desarrollo\centrogoma24` (solo lectura) · BD `centro_goma` (copia local restaurada al 31/10/2026) |
 | App base | `C:\laragon\www\avicola` (`github.com/rubendariobravo/avicola`) — de donde se portan módulos |
 
 El servidor es **compartido** con FrangoData, frangoadmin, isdm y mascotacenter: no tocar sus sitios, bases ni crons.
@@ -49,8 +49,9 @@ con cliente anterior al cambiar de cliente · vista de Cheques con el modelo vie
 
 ## 3. Armar el entorno en una PC nueva (Windows + Laragon)
 
-**Requisitos:** PHP 8.3, Composer, Node 22, MySQL 8 (app, puerto **3307**) y un MySQL para la BD legacy (puerto **3306**;
-la original es un MySQL 5.x).
+**Requisitos:** PHP 8.3, Composer, Node 22 y MySQL 8. En la PC actual (desde 31/10/2026) la BD de la app y la legacy
+están en **la misma instancia, puerto 3306** (la conexión legacy es solo host/puerto/base: no hace falta otra instancia;
+en la PC anterior eran 3307 app / 3306 legacy).
 
 ```bash
 git clone https://github.com/rubendariobravo/centrogoma.git C:/laragon/www/centrogoma
@@ -70,7 +71,7 @@ APP_URL=http://centrogoma.test
 LOG_CHANNEL=stack
 LOG_LEVEL=debug
 SESSION_SECURE_COOKIE=false
-DB_PORT=3307
+DB_PORT=3306
 DB_USERNAME=<usuario MySQL local>
 DB_PASSWORD=<contraseña local>
 LEGACY_DB_PORT=3306
@@ -78,15 +79,23 @@ LEGACY_DB_USERNAME=<usuario MySQL local>
 LEGACY_DB_PASSWORD=<contraseña local>
 ```
 
-**Bases** (en el MySQL 3307): `centrogoma`, `centrogoma_test` y `centrogoma_legacy_test` (las dos últimas las usan los
-tests; `phpunit.xml` toma usuario/contraseña del `.env`).
+**Bases:** `centrogoma`, `centrogoma_test` y `centrogoma_legacy_test` (las dos últimas vacías, las usan los tests).
+`phpunit.xml` fija solo los **nombres** de las bases de test; puerto, usuario y contraseña los toma del `.env`, así que
+las de test tienen que existir en la misma instancia que `DB_PORT` / `LEGACY_DB_PORT`:
 
-**Datos del Delphi** (BD `centro_goma` en el MySQL 3306): copiarlos del servidor, que tiene el volcado restaurado:
+```sql
+CREATE DATABASE centrogoma_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE centrogoma_legacy_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**Datos del Delphi** (BD `centro_goma`): restaurar un volcado del Delphi, o copiarlo del servidor (que tiene el del ensayo):
 
 ```bash
 ssh -i ~/.ssh/frangodata_vultr ruben@64.176.8.172 "sudo mysqldump --single-transaction --routines centro_goma | gzip" > centro_goma.sql.gz
 gunzip -c centro_goma.sql.gz | mysql -h 127.0.0.1 -P 3306 -u <usuario> -p centro_goma
 ```
+
+Si el host `centrogoma.test` no resuelve, recargar Laragon (agrega la entrada al `hosts`; el vhost ya lo genera solo).
 
 **Cargar y verificar:**
 
@@ -108,6 +117,13 @@ Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
 ## 4. Pendientes
 
 ### Antes de la salida a producción real
+
+**Legacy local restaurada al 31/10/2026** (la BD `centrogoma` local sigue con la importación del corte 29/09). Dry-run contra
+esa legacy: maestros → 61 artículos, 100 clientes y 3 proveedores nuevos; `importar-saldos --corte=2026-10-31` → 48
+clientes deudores ($146.512.590,03), 42 a favor (−$1.106.444,49), 47 proveedores acreedores ($58.551.662,81), 12 a favor
+nuestro (−$2.320.059,00). Movimientos con fecha posterior al corte: proveedor 182 (16/02/2109) y **proveedor 58 ROGUANT
+S.R.L. (28/11/2026, $425.539,38)** — confirmar si es error de carga o un comprobante a fecha futura.
+
 1. **Validar el stock importado** contra el Delphi (`articulos.stock` sale de `producto.stock`, que puede estar desactualizado).
 2. **Decisiones de administración sobre los saldos** (las lista el reporte de `importar-saldos`):
    - Saldos **a favor** (43 clientes, 14 proveedores): hoy se cargan solo como asiento de CC. Alternativa: no cargarlos y dejarlos en el reporte. Casos grandes: El Piave −$358.500, Full Work −$776.771, Gomazar −$650.168.
