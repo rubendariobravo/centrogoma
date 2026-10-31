@@ -26,6 +26,7 @@ use App\Livewire\Listas\Index as ListasIndex;
 use App\Livewire\Listas\Form as ListasForm;
 use App\Livewire\Listas\Precios as ListasPrecios;
 use App\Livewire\Empleados\Index as EmpleadosIndex;
+use App\Livewire\Anticipos\Index as AnticiposIndex;
 use App\Livewire\Remitos\Index as RemitosIndex;
 use App\Livewire\CcClientes\Index as CcClientesIndex;
 use App\Livewire\CcProveedores\Index as CcProveedoresIndex;
@@ -102,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Logística
     Route::get('remitos', RemitosIndex::class)->name('remitos');
     Route::get('empleados', EmpleadosIndex::class)->name('empleados');
+    Route::get('anticipos-empleados', AnticiposIndex::class)->name('anticipos-empleados');
 
     // Administración
     Route::get('usuarios', UsuariosIndex::class)->name('usuarios');

@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (133 tests, 492 assertions — todos pasan)
+# Correr tests (144 tests, 540 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -280,6 +280,7 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 | **Logística** | | |
 | `GET /remitos` | `Remitos\Index` | `remitos` |
 | `GET /empleados` | `Empleados\Index` | `empleados` |
+| `GET /anticipos-empleados` | `Anticipos\Index` (filtro `?empleado={id}`) | `anticipos-empleados` |
 | **Administración** | | |
 | `GET /usuarios` | `Usuarios\Index` | `usuarios` |
 | `GET /roles` | `Roles\Index` | `roles` |
@@ -356,6 +357,14 @@ lanzan como `AnulacionException` y se muestran en el modal.
 | Orden de Pago | saldo de las compras (vuelven a `P`), deuda del proveedor + asiento CC, egreso de caja, cheque propio | — |
 
 Compras se anulan con `CompraService::revertir()` desde `Compras\Index` (flujo propio, avisa OPs aplicadas).
+
+## Anticipos de sueldo — `Anticipos\Index`
+
+Portado de avícola, **sin** liquidaciones de sueldo (CentroGoma no las tiene: `liquidado` se marca a mano). Cargar un
+anticipo ES pagarlo: una línea en `anticipo_pagos` por medio de pago, cada una con SU caja abierta, y un egreso
+`concepto=anticipo` por línea vía `CajaService` (contador `cajas.total_anticipos`). El cabezal denormaliza la línea de
+mayor monto. Estados `pendiente` → `aprobado` → `liquidado`, o `rechazado`. Solo un pendiente se edita, rechaza o elimina,
+y los tres revierten los egresos; aprobar/liquidar no mueven caja.
 
 ---
 
@@ -599,10 +608,11 @@ tests/Feature/Anulaciones/AnulacionesTest.php  — 13 tests (venta/recibo/OP reg
 tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 6 tests (saldo, a favor, dry-run, re-corrida, saldo ya cobrado)
 tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selección y hooks por pantalla)
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
+tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 133 tests, 492 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 144 tests, 540 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -628,6 +638,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_09_29_000001_add_procesada_to_compras_table` | `forma_pago`, `procesada`, `procesada_at`, `procesada_por` en `compras` |
 | `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
 | `2026_09_29_000003_add_saldo_inicial_to_ventas_and_compras` | Flag de comprobante de saldo inicial (scope `comerciales()`) |
+| `2026_10_31_000001..2` | `anticipo_empleados` + `anticipo_pagos` (líneas de pago por caja) |
 
 ---
 
@@ -679,6 +690,6 @@ Lista completa y priorizada en **`docs/ESTADO_PROYECTO.md` §4**. Resumen:
 - **Antes de la salida real:** validar stock legacy · decisiones de administración sobre saldos a favor · limpiar
   datos de prueba en producción · reimportar con el Delphi actualizado (`docs/DESPLIEGUE_VPS.md` §4).
 - **Seguridad:** cambiar la contraseña MySQL de desarrollo (sigue publicada en el repo de avícola).
-- **Funcionalidad:** Anticipos → Estadísticas → Dashboard KPIs → cheque vinculado en detalles → AFIP (último).
+- **Funcionalidad:** Estadísticas → Dashboard KPIs → cheque vinculado en detalles → AFIP (último).
 - **Menores:** fase 6 pricing (recargo entrega / descuento efectivo) · en Ventas, la cantidad tipeada antes de
   elegir artículo no pasa a `seleccionarArticulo` (workaround: elegir artículo primero).

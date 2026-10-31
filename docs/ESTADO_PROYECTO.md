@@ -1,6 +1,6 @@
 # CentroGoma — Estado del proyecto
 
-**Última actualización:** 31/10/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 133 / 492 assertions, todos pasan
+**Última actualización:** 31/10/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 144 / 540 assertions, todos pasan
 
 Documento para retomar el trabajo en otra PC. Las reglas técnicas y la arquitectura están en `CLAUDE.md`;
 la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hecho, cómo armar el entorno y qué sigue.**
@@ -36,6 +36,7 @@ con tramos y overrides por cliente · Ventas, Recibos, Compras, Órdenes de Pago
 | Cheques | Modelo tercero/propio con `ChequeService` (impacto en caja al acreditar/debitar, rechazo reabre deuda) · vista actual de avícola |
 | Compras | `CompraService` (procesar/revertir: stock, costo, CC o caja) · anulación con motivo |
 | Gastos / Bancos | `/gastos` (con ABM de categorías) y `/bancos` |
+| Anticipos | `/anticipos-empleados` portado de avícola (multi-medio, un egreso por caja; sin liquidaciones de sueldo) · acceso desde cada empleado |
 | Anulaciones | Venta / Recibo / OP con `AnulacionService` (revierte stock, caja, CC, cheques; bloquea casos inseguros) |
 | Buscador de clientes | `BuscaCliente` + `<x-buscador-cliente>` en Ventas, Presupuestos, Recibos y Cheques (6.6K clientes) |
 | Legacy | `centrogoma:importar` (rubros, artículos, clientes, proveedores, plan_cuenta) y `centrogoma:importar-saldos` (saldos de CC como comprobantes de saldo inicial) — ambos repetibles |
@@ -105,7 +106,7 @@ php artisan centrogoma:importar
 php artisan centrogoma:importar-saldos --corte=2026-05-28
 php artisan db:seed --class=UsuarioTestingSeeder     # usuario de pruebas (credenciales en el seeder)
 php artisan storage:link
-php artisan test                                     # 133 tests
+php artisan test                                     # 144 tests
 ```
 
 Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
@@ -138,12 +139,11 @@ S.R.L. (28/11/2026, $425.539,38)** — confirmar si es error de carga o un compr
 - En la PC anterior quedaron la rama local `respaldo/antes-limpieza` y `refs/original/` con el historial previo a la limpieza (con la contraseña vieja). No están en GitHub; borrarlas cuando no hagan falta.
 
 ### Funcionalidad (por prioridad)
-1. **Anticipos de empleados** (`/anticipos-empleados`, egreso de caja concepto `anticipo`) — portar de avícola.
-2. **Estadísticas** — avícola tiene `/estadisticas` y un plan en `avicola/docs/PLAN_ESTADISTICAS_COMERCIALES.md`.
-3. **Dashboard con KPIs reales** (ventas del día, cheques por vencer, caja, saldos CC).
-4. **Vista de cheque vinculado** en el detalle de Recibo/OP/Venta.
-5. **AFIP** (facturación electrónica, nota de crédito para anular ventas con CAE) — último; requiere certificados.
-6. Menores: recargo por entrega / descuento efectivo sobre el total (fase 6 pricing); cantidad tipeada antes de elegir artículo en Ventas.
+1. **Estadísticas** — avícola tiene `/estadisticas` y un plan en `avicola/docs/PLAN_ESTADISTICAS_COMERCIALES.md`.
+2. **Dashboard con KPIs reales** (ventas del día, cheques por vencer, caja, saldos CC).
+3. **Vista de cheque vinculado** en el detalle de Recibo/OP/Venta.
+4. **AFIP** (facturación electrónica, nota de crédito para anular ventas con CAE) — último; requiere certificados.
+5. Menores: recargo por entrega / descuento efectivo sobre el total (fase 6 pricing); cantidad tipeada antes de elegir artículo en Ventas; un anticipo ya aprobado no se puede corregir ni rechazar (igual que en avícola, cuya ayuda dice lo contrario): hoy solo queda un ajuste de caja.
 
 ### Para avícola (encontrado acá, no aplicado allá)
 - Mismo bug de percepciones al cambiar de cliente en `Ventas\Form` (fix en CentroGoma: refrescar `clienteData` en el listener `items-actualizados`).

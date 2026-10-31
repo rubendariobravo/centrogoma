@@ -350,6 +350,27 @@ return [
             ],
         ],
 
+        'anticipos-empleados' => [
+            'titulo'      => 'Anticipos de Sueldo',
+            'descripcion' => 'Adelantos entregados al personal, con pago en uno o varios medios.',
+            'tips' => [
+                'Cargar un anticipo ES pagarlo: la plata se descuenta de la caja en el momento en que lo guardás.',
+                'Para pagar mitad efectivo y mitad transferencia usá "+ Agregar medio". Cada línea sale de SU propia caja: el efectivo del cajón, la transferencia del banco o Caja General.',
+                'El cuadre al pie te guía: "Falta $X — asignar" es un botón, hacé clic y completa lo que falta en la última línea.',
+                'Con una sola línea de pago no hace falta tipear el importe dos veces: al escribir el monto del anticipo, la línea lo copia sola.',
+                'Solo los anticipos "pendientes" se pueden editar, rechazar o eliminar. Al editar, el sistema revierte el egreso anterior y lo vuelve a aplicar.',
+                'Rechazar o eliminar un anticipo devuelve la plata a todas las cajas de donde había salido. Aprobar y liquidar no mueven plata.',
+                'Desde Empleados, el ícono de billetes de cada fila abre los anticipos de esa persona.',
+            ],
+            'faq' => [
+                ['q' => '¿El anticipo descuenta al cargarlo o al liquidar el sueldo?', 'a' => 'Al cargarlo. Marcarlo como liquidado solo registra que ya se descontó del sueldo: no vuelve a mover la caja.'],
+                ['q' => '¿Por qué cada forma de pago pide una caja?', 'a' => 'Porque el efectivo sale del cajón y la transferencia del banco. Si se cargara todo en una sola caja, el arqueo de efectivo mostraría un faltante que no existe.'],
+                ['q' => '¿Qué significa el chip "Mixto (2)"?', 'a' => 'Que ese anticipo se pagó con dos medios distintos. Debajo se detalla cuáles.'],
+                ['q' => '¿Para qué sirven Aprobar y Liquidar?', 'a' => 'Aprobar es un control interno. Liquidar (sobre un aprobado) indica que ya se descontó del sueldo del empleado. Ninguno de los dos mueve plata.'],
+                ['q' => '¿No me deja guardar y dice que falta asignar?', 'a' => 'La suma de las formas de pago tiene que ser exactamente igual al monto del anticipo. Usá el botón ámbar del cuadre para completar la diferencia.'],
+            ],
+        ],
+
         // ─── ADMINISTRACIÓN ──────────────────────────────────────────────────
 
         'usuarios' => [

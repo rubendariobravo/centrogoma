@@ -161,7 +161,7 @@ new class extends Component
         </div>
 
         {{-- LOGÍSTICA --}}
-        <div x-data="{ open: {{ $isGroup(['remitos*','empleados*']) ? 'true' : 'false' }} }">
+        <div x-data="{ open: {{ $isGroup(['remitos*','empleados*','anticipos-empleados*']) ? 'true' : 'false' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
                 <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
@@ -180,6 +180,9 @@ new class extends Component
                 </a>
                 <a href="{{ route('empleados') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('empleados*') }}">
                     <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Empleados
+                </a>
+                <a href="{{ route('anticipos-empleados') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('anticipos-empleados*') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Anticipos
                 </a>
             </div>
         </div>

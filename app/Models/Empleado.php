@@ -34,6 +34,11 @@ class Empleado extends Model implements Auditable
         return $this->hasMany(Cliente::class);
     }
 
+    public function anticipos()
+    {
+        return $this->hasMany(AnticipoEmpleado::class);
+    }
+
     public function getNombreCompletoAttribute(): string
     {
         return trim("{$this->nombre} {$this->apellido}");

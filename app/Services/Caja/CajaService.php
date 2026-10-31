@@ -24,7 +24,7 @@ class CajaService
      * Registra un movimiento en una caja y actualiza su contador cacheado.
      *
      * @param  string  $tipo      'ingreso' | 'egreso'
-     * @param  string  $concepto  venta|cobro|pago_proveedor|gasto|transferencia|apertura|ajuste
+     * @param  string  $concepto  venta|cobro|pago_proveedor|gasto|anticipo|transferencia|apertura|ajuste
      * @param  array   $opts      forma_pago, referencia_type, referencia_id, user_id,
      *                            categoria_gasto_id, cuenta_contable_id, descripcion, fecha
      */
