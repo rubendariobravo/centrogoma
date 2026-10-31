@@ -1,374 +1,143 @@
-# Sistema Avícola — Estado del Proyecto
+# CentroGoma — Estado del proyecto
 
-**Fecha:** 26 de abril de 2026  
-**Versión:** 0.8 (desarrollo activo)  
-**URL local:** http://avicola.test  
-**Repositorio:** C:\laragon\www\avicola
+**Última actualización:** 31/10/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 133 / 492 assertions, todos pasan
 
----
-
-## Stack Tecnológico
-
-| Componente | Versión | Notas |
-|---|---|---|
-| PHP | 8.3.28 | |
-| Laravel | 12.57.0 | |
-| Livewire | 3.7.15 | Full-page components + Volt (auth/nav) |
-| Alpine.js | bundled con Livewire | Cálculos client-side sin round-trips |
-| Tailwind CSS | 3.x (via Vite) | |
-| MySQL | Laragon, puerto **3307** | DB: `avicola`, user: `ruben` |
-| Spatie Permission | latest | 5 roles: admin, supervisor, cajero, vendedor, almacen |
-
-**NO usa Filament** — descartado por lentitud del Repeater (400-900ms). Alpine.js maneja todos los cálculos en tiempo real.
+Documento para retomar el trabajo en otra PC. Las reglas técnicas y la arquitectura están en `CLAUDE.md`;
+la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hecho, cómo armar el entorno y qué sigue.**
 
 ---
 
-## Credenciales de desarrollo
+## 1. Dónde está cada cosa
 
-- **URL:** http://avicola.test  
-- **Admin:** admin@avicola.test / password  
-- **Vendedor:** vendedor@avicola.test / password  
-- **DB:** DB_DATABASE=avicola, DB_PORT=3307, DB_USERNAME=ruben, DB_PASSWORD=(ver .env)
-
----
-
-## Módulos completados ✅
-
-### Infraestructura
-- [x] Proyecto Laravel 12 creado y configurado
-- [x] Vhost Apache (avicola.test) funcionando
-- [x] TALL stack instalado (Livewire 3, Alpine.js, Tailwind)
-- [x] Spatie Laravel Permission instalado y configurado
-- [x] Layout principal: `resources/views/components/layouts/app.blade.php`
-  - Sidebar fijo (desktop) / drawer (móvil) con overlay
-  - Topbar con badge caja abierta/cerrada (tiempo real)
-  - Usuario logueado con avatar inicial
-- [x] Navegación lateral: `resources/views/livewire/layout/navigation.blade.php`
-  - 6 grupos colapsables: Ventas, Compras, Artículos, Caja y Finanzas, Producción, Administración
-  - Detección de link activo con highlight
-- [x] Autenticación completa (Laravel Breeze / Volt)
-- [x] FakeDataSeeder: datos de prueba (rubros, marcas, proveedores, clientes, artículos, cajas, ventas)
-
-### Base de datos (31 migraciones ejecutadas)
-
-| Tabla | Descripción |
+| | |
 |---|---|
-| `tipoiva` | Tipos IVA con código AFIP (RI, CF, Exento, etc.) |
-| `doc_afip` | Tipos de comprobante AFIP (FA, FB, FC, ND, NC) |
-| `variable_entorno` | Configuraciones: pto_vta, cuit_emisor, afip_ambiente, etc. |
-| `rubros` | Categorías de artículos con alícuota IVA |
-| `marcas` | Marcas con proveedor FK |
-| `proveedores` | Proveedores con SoftDeletes |
-| `empleados` | Personal con roles: vendedor/repartidor/produccion/administrativo/otro |
-| `articulos` | Artículos tipo CAJA o PESO, dual stock (mayorista/minorista), SoftDeletes |
-| `articulo_precios` | Precios por rango de cantidad (cantidad_desde, cantidad_hasta NULL=ilimitado, precio, activo, orden) |
-| `clientes` | Clientes con tipoiva_id, porcentaje_iibb, percepcion_iva, es_mayorista, SoftDeletes |
-| `cajas` | Apertura/cierre caja diaria por usuario |
-| `ventas` | Ventas con campos AFIP completos, SoftDeletes |
-| `det_ventas` | Ítems de venta con alicuota_iva, descuento, subtotal, subtotal_iva |
-| `pago_ventas` | Pagos: efectivo/transferencia/cheque/tarjeta/cta_cte/otro |
-| `movimientos_articulos` | Stock: entrada/salida/ajuste/produccion/descarte/pesada (morphable) |
-| `cc_clientes` | Cuenta corriente clientes (debe/haber/saldo running, referencia morphable) |
-| `cc_proveedores` | Cuenta corriente proveedores (misma estructura) |
-| `compras` | Compras a proveedores con IVA desglosado |
-| `det_compras` | Ítems de compra |
-| `producciones` | Transformación cajones → cortes/subproductos con merma |
-| `remitos` | Remitos de entrega (peso y cajas) |
-| `pesadas` | Pesadas físicas de stock con ajuste automático |
-| `descartes` | Mermas/descartes con motivo |
-| `recibos` | Recibos de cobro a clientes |
-| `ordenes_pago` | Órdenes de pago a proveedores |
-| `detalle_ordenes_pago` | Facturas cubiertas por cada orden de pago |
-| `cotizaciones` | Cotización USD/EUR |
-| `sub_articulos` | Relación padre-hijo para producciones |
-| `cliente_precios` | Precios especiales por cliente |
+| Repositorio | `https://github.com/rubendariobravo/centrogoma` — rama `master` (única) |
+| Producción | `https://centrogoma.rdbti.com` — VPS Vultr `64.176.8.172`, `/var/www/centrogoma` |
+| Acceso al servidor | `ssh -i ~/.ssh/frangodata_vultr ruben@64.176.8.172`, después `sudo -i` (sudo sin contraseña) |
+| Admin de producción | `rubendario.bravo@gmail.com` — contraseña en `/root/credenciales-centrogoma.txt` (línea `APP admin`) |
+| Secretos del servidor | `/root/credenciales-centrogoma.txt` (MySQL `centrogoma`, `centrogoma_legacy_ro`, admin) |
+| Sistema legacy | Delphi XE5 en `H:\Desarrollo\centrogoma24` (solo lectura) · BD `centro_goma` |
+| App base | `C:\laragon\www\avicola` (`github.com/rubendariobravo/avicola`) — de donde se portan módulos |
 
-### Dashboard ✅
-- Stats: ventas hoy/semana, clientes activos, artículos activos, stock crítico, caja abierta
-- Tabla últimas 8 ventas + panel top 6 alertas stock crítico
-
-### Artículos ✅ (CRUD completo con precios por tramo)
-- Index con búsqueda, filtros rubro/tipo/estado, paginación
-- Form: identificación, clasificación, tipo CAJA/PESO, stock, IVA, costos
-- Tabla de tramos de precio con Alpine.js @entangle
-- Preview calculadora: cantidad → precio aplicado en tiempo real (sin round-trips)
-
-### Rubros ✅ · Marcas ✅ · Empleados ✅ (CRUD inline modal)
-
-### Clientes ✅ (CRUD full-page)
-- Filtros: búsqueda, tipo IVA, mayorista/minorista, estado
-- CUIT/DNI, tipo IVA, vendedor asignado, lista precio (1-6), bonificación, límite crédito
-- Percepción IIBB (%), Percepción IVA toggle
-- `porcentaje_iibb` guardado como decimal 0-1, ingresado como % (dividido en save)
-
-### Proveedores ✅ (CRUD full-page)
-- Razón social, CUIT, contacto, teléfonos, email, domicilio
-- `protected $table = 'proveedores'` (Laravel pluraliza mal: proveedors)
-
-### Cajas ✅ (Apertura/Cierre diaria)
-- Modal apertura: saldo inicial + observación
-- Modal cierre: resumen breakdown (ventas/cobros/gastos), saldo real contado, diferencia
-- Historial paginado con indicadores diferencia
-- `hora_apertura/cierre`: columnas `dateTime` en DB, cast `datetime` en modelo → `format('H:i')`
-
-### Ventas ✅ (Index + Form con Alpine.js)
-- Filtros: búsqueda, rango fechas (default mes actual), estado, cliente
-- Total del período
-- Form Alpine.js sin round-trips:
-  - `articulosData` JSON pre-cargado con tramos de precio
-  - Al seleccionar artículo: auto-rellena tipo_venta, unidad_medida, alícuota IVA
-  - Al cambiar cantidad: busca tramo correspondiente → actualiza precio
-  - Cálculo en tiempo real: neto_21/10_5, IVA, percepciones IIBB/IVA, descuento general, total
-  - `updatedClienteId`: carga datos de percepciones + determina letra (A si RI, B si no)
-  - Al guardar (`save(array $totales)`): crea Venta, DetVenta, decrementa stock, MovimientoArticulo, PagoVenta, incrementa caja
-  - Cuenta corriente: actualiza `Cliente.saldo`, crea `CcCliente` (debe)
-- Modo lectura (`$readOnly`) para ventas ya guardadas
-
-### Compras ✅ (Index + Form)
-- Index: filtros proveedor/período/estado, total período
-- Form Alpine.js: ítems con precio costo, IVA seleccionable, subtotales en tiempo real
-- Al guardar: crea DetCompra, **incrementa stock**, MovimientoArticulo (entrada), actualiza precio_costo del artículo
-- Cuenta corriente: actualiza `Proveedor.saldo`, crea `CcProveedor` (debe)
-- Forma de pago: cuenta corriente (queda P) o pago inmediato (queda C)
-
-### Recibos ✅ (Index + Form)
-- Lista de cobros con filtros período/cliente/estado
-- Form: selección de cliente → muestra saldo actual + facturas pendientes (más antiguas primero)
-- Al guardar: crea Recibo, aplica pago a ventas pendientes (FIFO), actualiza `Cliente.saldo`, crea `CcCliente` (haber), incrementa `caja.total_cobros`
-- Botón "Pagar saldo completo" para cobro total de un clic
-
-### CC Clientes ✅ · CC Proveedores ✅ · Órdenes de Pago ✅
-- Lista de clientes/proveedores con saldo, ordenados por deuda mayor primero
-- Filtros: con deuda / todos / saldados
-- Click en cliente → panel derecho con movimientos (últimos 50)
-- Muestra debe/haber/saldo running por movimiento
-
-### Producción ✅ (inline modal)
-- Registro de procesos productivos: entrada, salida, merma calculada automáticamente
-- Merma % auto-calculada en base a entrada/salida
-
-### Remitos ✅ (inline modal)
-- Registro de despachos: fecha, empleado, total_peso (kg), total_cajas
-- Estados: abierto/cerrado/anulado
-
-### Pesadas ✅ (inline modal)
-- Stock sistema auto-cargado al seleccionar artículo
-- Diferencia calculada: stock_real - stock_sistema
-- Al guardar: ajusta `articulos.stock` al stock real + crea `MovimientoArticulo` (entrada o salida)
-
-### Descartes ✅ (inline modal)
-- Fecha, artículo, empleado, cantidad, motivo
-- Al guardar: decrementa `articulos.stock` + crea `MovimientoArticulo` (salida)
-
-### Usuarios ✅ (CRUD inline modal, admin)
-- Crear/editar usuarios con hash de password
-- Asignación de rol via Spatie (syncRoles)
-- No permite eliminar el propio usuario
-
-### Roles ✅ (gestión de permisos, admin)
-- Lista de roles con permisos agrupados por módulo
-- Checkbox grid para asignar/quitar permisos
-- Protege roles admin y supervisor de eliminación
-
-### Configuración ✅
-- Datos de la empresa (nombre, razón social, CUIT, domicilio, teléfono, email, logo)
-- Facturación AFIP (punto de venta, IIBB tipo/número)
-- Opciones stock: stock negativo, ajuste automático precio costo, pide vendedor
-- Listas de precio (1-6)
-- Usa `VariableEntorno::set/get` para persistir
+El servidor es **compartido** con FrangoData, frangoadmin, isdm y mascotacenter: no tocar sus sitios, bases ni crons.
 
 ---
 
-## Módulos pendientes ❌ (Post-MVP)
+## 2. Qué está hecho
 
-| Módulo | Descripción |
+**Base (Fases 0–2):** app limpia desde avícola · Presupuestos (con conversión a venta) · motor de precios multi-lista
+con tramos y overrides por cliente · Ventas, Recibos, Compras, Órdenes de Pago, Clientes, Proveedores, Artículos.
+
+**Portado / construido desde avícola (sept–oct 2026):**
+
+| Área | Qué hay |
 |---|---|
-| **AFIP WSFEv1** | Facturación electrónica: CAE, vto_cae via SOAP/JSON |
-| **Informes** | Ventas por período/cliente/artículo, stock, comisiones, libro IVA |
-| **Dashboard mejorado** | Gráficos Chart.js (ventas por día, top artículos, evolución stock) |
-| **Comisiones empleados** | Calcular y registrar comisiones por ventas del vendedor asignado |
-| **Cotizaciones** | Registrar cotización USD/EUR, soporte venta en moneda extranjera |
-| **Sub-artículos** | Despiece: un cajón → cortes/subproductos (SubArticulo model existe) |
-| **Precios por cliente** | ClientePrecio: precio especial por artículo para un cliente específico |
-| **Notificaciones** | Alertas stock crítico, vencimiento facturas, etc. |
-| **Impresión** | PDF de facturas, recibos, remitos |
+| Caja | `CajaService` (libro `movimiento_cajas`), cajas diaria/general/banco, transferencias, ajustes, arqueo de efectivo, detalle `/cajas/{caja}` |
+| Cheques | Modelo tercero/propio con `ChequeService` (impacto en caja al acreditar/debitar, rechazo reabre deuda) · vista actual de avícola |
+| Compras | `CompraService` (procesar/revertir: stock, costo, CC o caja) · anulación con motivo |
+| Gastos / Bancos | `/gastos` (con ABM de categorías) y `/bancos` |
+| Anulaciones | Venta / Recibo / OP con `AnulacionService` (revierte stock, caja, CC, cheques; bloquea casos inseguros) |
+| Buscador de clientes | `BuscaCliente` + `<x-buscador-cliente>` en Ventas, Presupuestos, Recibos y Cheques (6.6K clientes) |
+| Legacy | `centrogoma:importar` (rubros, artículos, clientes, proveedores, plan_cuenta) y `centrogoma:importar-saldos` (saldos de CC como comprobantes de saldo inicial) — ambos repetibles |
+| Producción | Desplegado 26/10/2026, HTTPS, datos del Delphi al corte **28/05/2026** (ensayo: se reimporta en la salida real) |
+
+**Bugs corregidos en el camino:** caja de ventas con pago mixto (un asiento por forma de pago) · percepciones IIBB/IVA
+con cliente anterior al cambiar de cliente · vista de Cheques con el modelo viejo · seeder que creaba
+`admin@avicola.test / password` · `Tipoiva` vs `TipoIva` (solo fallaba en Linux) · tests que apuntaban a la BD de avícola.
 
 ---
 
-## Estructura de archivos clave
+## 3. Armar el entorno en una PC nueva (Windows + Laragon)
 
-```
-app/
-├── Livewire/
-│   ├── Articulos/Index.php + Form.php    ✅
-│   ├── Cajas/Index.php                   ✅
-│   ├── CcClientes/Index.php              ✅ Saldo + movimientos expandibles
-│   ├── CcProveedores/Index.php           ✅ Saldo + movimientos expandibles
-│   ├── Clientes/Index.php + Form.php     ✅
-│   ├── Compras/Index.php + Form.php      ✅ Alpine.js + stock + CC
-│   ├── Config/Index.php                  ✅ VariableEntorno
-│   ├── Descartes/Index.php               ✅ Inline modal + stock
-│   ├── Empleados/Index.php               ✅ CRUD inline modal
-│   ├── Marcas/Index.php                  ✅ CRUD inline modal
-│   ├── Pesadas/Index.php                 ✅ Ajuste stock automático
-│   ├── Produccion/Index.php              ✅ Merma calculada
-│   ├── Proveedores/Index.php + Form.php  ✅
-│   ├── OrdenPago/Index.php + Form.php    ✅ Pagos FIFO + CC
-│   ├── Recibos/Index.php + Form.php      ✅ Cobros FIFO + CC
-│   ├── Remitos/Index.php                 ✅ Inline modal
-│   ├── Roles/Index.php                   ✅ Permisos checkbox grid
-│   ├── Rubros/Index.php                  ✅ CRUD inline modal
-│   ├── Usuarios/Index.php                ✅ CRUD + Spatie roles
-│   ├── Ventas/Index.php + Form.php       ✅ Alpine.js + percepciones + CC
-│   └── Dashboard.php                     ✅
+**Requisitos:** PHP 8.3, Composer, Node 22, MySQL 8 (app, puerto **3307**) y un MySQL para la BD legacy (puerto **3306**;
+la original es un MySQL 5.x).
 
-app/Models/
-├── Articulo.php       ✅ (SoftDeletes, preciosActivos, getPrecioPorCantidad)
-├── ArticuloPrecio.php ✅
-├── Caja.php           ✅ (datetime casts hora_apertura/cierre)
-├── CcCliente.php      ✅ (table=cc_clientes, morphable referencia)
-├── CcProveedor.php    ✅ (table=cc_proveedores, morphable referencia)
-├── Cliente.php        ✅ (SoftDeletes, tipoIva, cuentaCorriente)
-├── Compra.php         ✅ (SoftDeletes, proveedor, detalles)
-├── DetCompra.php      ✅ (table=det_compras)
-├── DetVenta.php       ✅
-├── Descarte.php       ✅
-├── Empleado.php       ✅
-├── Marca.php          ✅
-├── MovimientoArticulo.php ✅ (morphable referencia)
-├── PagoVenta.php      ✅
-├── Pesada.php         ✅
-├── Produccion.php     ✅ (SoftDeletes)
-├── Proveedor.php      ✅ (table='proveedores', SoftDeletes)
-├── OrdenPago.php      ✅ (SoftDeletes, proveedor, detalles)
-├── DetalleOrdenPago.php ✅ (table=detalle_ordenes_pago)
-├── Recibo.php         ✅ (SoftDeletes)
-├── Remito.php         ✅ (SoftDeletes)
-├── Rubro.php          ✅
-├── TipoIva.php        ✅
-├── User.php           ✅ (HasRoles via Spatie)
-├── VariableEntorno.php ✅ (get/set estáticos)
-└── Venta.php          ✅ (SoftDeletes, detalles, pagos)
-```
-
----
-
-## Rutas registradas
-
-```php
-// Ventas
-GET  ventas              → VentasIndex
-GET  ventas/create       → VentasForm
-GET  ventas/{venta}      → VentasForm (readOnly)
-GET  clientes            → ClientesIndex
-GET  clientes/create     → ClientesForm
-GET  clientes/{id}/edit  → ClientesForm
-GET  recibos             → RecibosIndex
-GET  recibos/create      → RecibosForm
-GET  recibos/{recibo}    → RecibosForm (readOnly)
-
-// Compras
-GET  compras             → ComprasIndex
-GET  compras/create      → ComprasForm
-GET  compras/{compra}    → ComprasForm (readOnly)
-GET  proveedores         → ProveedoresIndex
-GET  proveedores/create  → ProveedoresForm
-GET  proveedores/{id}/edit → ProveedoresForm
-
-// Artículos
-GET  articulos           → ArticulosIndex
-GET  articulos/create    → ArticulosForm
-GET  articulos/{id}/edit → ArticulosForm
-GET  rubros              → RubrosIndex
-GET  marcas              → MarcasIndex
-
-// Caja y Finanzas
-GET  cajas               → CajasIndex
-GET  cc-clientes         → CcClientesIndex
-GET  cc-proveedores      → CcProveedoresIndex
-GET  ordenes-pago        → OrdenPagoIndex
-GET  ordenes-pago/create → OrdenPagoForm
-GET  ordenes-pago/{op}   → OrdenPagoForm (readOnly)
-
-// Producción
-GET  produccion          → ProduccionIndex
-GET  remitos             → RemitosIndex
-GET  pesadas             → PesadasIndex
-GET  descartes           → DescartesIndex
-GET  empleados           → EmpleadosIndex
-
-// Administración
-GET  usuarios            → UsuariosIndex
-GET  roles               → RolesIndex
-GET  config              → ConfigIndex
-```
-
----
-
-## Decisiones de diseño importantes
-
-### Convenciones de nomenclatura
-- `Proveedor` → `protected $table = 'proveedores'` (pluralización incorrecta de Laravel)
-- `CcCliente` → `protected $table = 'cc_clientes'`
-- `CcProveedor` → `protected $table = 'cc_proveedores'`
-- `DetCompra` → `protected $table = 'det_compras'`
-
-### Porcentajes guardados como decimales
-- `porcentaje_iibb`: guardado 0-1 (0.03 = 3%), mostrado/ingresado como % (3)
-- `comision` en Marcas: guardado 0-1, mostrado ×100
-- Al cargar en Form: ×100 para display, dividir /100 en save
-
-### Cajas y dateTime
-- `hora_apertura` / `hora_cierre` son columnas `DATETIME` (no `TIME`)
-- Modelo: `'hora_apertura' => 'datetime'`
-- Vista: `$caja->hora_apertura->format('H:i')` (no substr)
-
-### Alpine.js en formularios complejos
-- Ventas y Compras: articulosData pre-cargado como JSON via `@json()`
-- `$wire.entangle('items')` para binding bidireccional
-- `$wire.save(totales)` para enviar totales calculados por Alpine a Livewire
-- Sin round-trips durante la edición de ítems
-
-### CC (Cuenta Corriente)
-- **Ventas cuenta corriente**: `Cliente.saldo += total`, crea `CcCliente` (debe)
-- **Recibos**: aplica a ventas más antiguas primero (FIFO), `Cliente.saldo -= monto`, crea `CcCliente` (haber)
-- **Compras cuenta corriente**: `Proveedor.saldo += total`, crea `CcProveedor` (debe)
-- **Órdenes de Pago**: aplica FIFO a compras más antiguas, `Proveedor.saldo -= monto`, crea `CcProveedor` (haber), crea `DetalleOrdenPago`
-- `saldo` en `cc_clientes/cc_proveedores` es el saldo **después** del movimiento
-
-### Stock
-- Ventas → `articulo.stock -= cantidad` + `MovimientoArticulo` (salida)
-- Compras → `articulo.stock += cantidad` + `MovimientoArticulo` (entrada)
-- Descartes → `articulo.stock -= cantidad` + `MovimientoArticulo` (salida)
-- Pesadas → `articulo.stock = stock_real` + `MovimientoArticulo` (entrada o salida)
-- Compras también actualizan `articulo.precio_costo` con el precio de la última compra
-
----
-
-## Seeders
-
-### Para poblar la BD con datos de prueba:
 ```bash
-php artisan db:seed --class=RolesAndPermissionsSeeder
-php artisan db:seed --class=FakeDataSeeder
+git clone https://github.com/rubendariobravo/centrogoma.git C:/laragon/www/centrogoma
+cd C:/laragon/www/centrogoma
+composer install
+npm ci && npm run build
+cp .env.example .env
+php artisan key:generate
 ```
 
-### Datos creados por FakeDataSeeder:
-- 8 rubros, 4 proveedores, 5 marcas, 5 empleados
-- 8 clientes (RI mayoristas, monotributo, CF minoristas) con IIBB/percepción
-- 13 artículos CAJA/PESO con 42 tramos de precio
-- 8 cajas (1 abierta hoy + 7 historial)
-- 38 ventas últimos 7 días con DetVenta + PagoVenta
+`.env.example` es la plantilla **de producción**. Para desarrollo cambiar:
 
-### Si hay errores al correr el seeder:
-```sql
-SET FOREIGN_KEY_CHECKS=0;
-TRUNCATE TABLE ventas; TRUNCATE TABLE det_ventas; TRUNCATE TABLE pago_ventas;
-TRUNCATE TABLE articulos; TRUNCATE TABLE articulo_precios;
-TRUNCATE TABLE clientes; TRUNCATE TABLE proveedores;
-TRUNCATE TABLE marcas; TRUNCATE TABLE rubros;
-TRUNCATE TABLE empleados; TRUNCATE TABLE cajas;
-TRUNCATE TABLE movimientos_articulos;
-SET FOREIGN_KEY_CHECKS=1;
+```ini
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://centrogoma.test
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+SESSION_SECURE_COOKIE=false
+DB_PORT=3307
+DB_USERNAME=<usuario MySQL local>
+DB_PASSWORD=<contraseña local>
+LEGACY_DB_PORT=3306
+LEGACY_DB_USERNAME=<usuario MySQL local>
+LEGACY_DB_PASSWORD=<contraseña local>
 ```
-Luego volver a correr `RolesAndPermissionsSeeder` antes de `FakeDataSeeder`.
+
+**Bases** (en el MySQL 3307): `centrogoma`, `centrogoma_test` y `centrogoma_legacy_test` (las dos últimas las usan los
+tests; `phpunit.xml` toma usuario/contraseña del `.env`).
+
+**Datos del Delphi** (BD `centro_goma` en el MySQL 3306): copiarlos del servidor, que tiene el volcado restaurado:
+
+```bash
+ssh -i ~/.ssh/frangodata_vultr ruben@64.176.8.172 "sudo mysqldump --single-transaction --routines centro_goma | gzip" > centro_goma.sql.gz
+gunzip -c centro_goma.sql.gz | mysql -h 127.0.0.1 -P 3306 -u <usuario> -p centro_goma
+```
+
+**Cargar y verificar:**
+
+```bash
+php artisan migrate --seed
+php artisan centrogoma:importar
+php artisan centrogoma:importar-saldos --corte=2026-05-28
+php artisan db:seed --class=UsuarioTestingSeeder     # usuario de pruebas (credenciales en el seeder)
+php artisan storage:link
+php artisan test                                     # 133 tests
+```
+
+Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
+
+**Clave SSH del servidor:** `~/.ssh/frangodata_vultr` se copia a mano desde la PC anterior (nunca por el repo).
+
+---
+
+## 4. Pendientes
+
+### Antes de la salida a producción real
+1. **Validar el stock importado** contra el Delphi (`articulos.stock` sale de `producto.stock`, que puede estar desactualizado).
+2. **Decisiones de administración sobre los saldos** (las lista el reporte de `importar-saldos`):
+   - Saldos **a favor** (43 clientes, 14 proveedores): hoy se cargan solo como asiento de CC. Alternativa: no cargarlos y dejarlos en el reporte. Casos grandes: El Piave −$358.500, Full Work −$776.771, Gomazar −$650.168.
+   - **CONSUMIDOR FINAL** (−$10.000) queda excluido.
+   - Pago a proveedor 182 con fecha **16/02/2109**: corregir la fecha en el Delphi antes del volcado final.
+3. **Limpiar en producción** lo que se cargue como prueba antes de reimportar (ventas, recibos, cajas de ensayo).
+4. **Salida:** volcado actualizado del Delphi → `docs/DESPLIEGUE_VPS.md` §4 (`importar --force` + `importar-saldos` con el corte del último día operado).
+
+### Seguridad
+- **Cambiar la contraseña de MySQL** del usuario de desarrollo (`ruben`): estuvo en el historial de CentroGoma (ya limpiado) y **sigue publicada en el repo de avícola** (`phpunit.xml`), que necesita la misma limpieza.
+- Cambiar la contraseña del admin de producción en el primer ingreso.
+- En la PC anterior quedaron la rama local `respaldo/antes-limpieza` y `refs/original/` con el historial previo a la limpieza (con la contraseña vieja). No están en GitHub; borrarlas cuando no hagan falta.
+
+### Funcionalidad (por prioridad)
+1. **Anticipos de empleados** (`/anticipos-empleados`, egreso de caja concepto `anticipo`) — portar de avícola.
+2. **Estadísticas** — avícola tiene `/estadisticas` y un plan en `avicola/docs/PLAN_ESTADISTICAS_COMERCIALES.md`.
+3. **Dashboard con KPIs reales** (ventas del día, cheques por vencer, caja, saldos CC).
+4. **Vista de cheque vinculado** en el detalle de Recibo/OP/Venta.
+5. **AFIP** (facturación electrónica, nota de crédito para anular ventas con CAE) — último; requiere certificados.
+6. Menores: recargo por entrega / descuento efectivo sobre el total (fase 6 pricing); cantidad tipeada antes de elegir artículo en Ventas.
+
+### Para avícola (encontrado acá, no aplicado allá)
+- Mismo bug de percepciones al cambiar de cliente en `Ventas\Form` (fix en CentroGoma: refrescar `clienteData` en el listener `items-actualizados`).
+
+---
+
+## 5. Cómo se trabajó (convenciones)
+
+- Commits en español, en `master`, con tests verdes antes de cada commit; push a `origin`.
+- Al portar de avícola: copiar componente **y** vista juntos, y verificar que coincidan (Cheques quedó con componente nuevo y vista vieja).
+- Todo import legacy es **repetible** y tiene `--dry-run`: la salida real se hace con la BD del Delphi actualizada.
+- Nunca versionar contraseñas; nunca `migrate:fresh` en producción; nunca `composer update` / `npm install` en el servidor.
+- Actualizar producción: `ssh -i ~/.ssh/frangodata_vultr ruben@64.176.8.172 "sudo bash /var/www/centrogoma/deploy/actualizar.sh"`.

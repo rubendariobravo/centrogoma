@@ -2,6 +2,9 @@
 
 Guía para Claude Code al trabajar en este repositorio.
 
+> **Al retomar (o en una PC nueva): leer primero `docs/ESTADO_PROYECTO.md`** — qué está hecho, cómo armar el
+> entorno de desarrollo, producción y pendientes priorizados.
+
 ---
 
 ## Contexto del proyecto
@@ -671,24 +674,11 @@ Desde `/listas-precios/{lista}/precios`:
 
 ## Pendientes / Próximas fases
 
-### Inmediatos
-- **Stock legacy al corte** — hoy `articulos.stock` viene de `producto.stock` en la importación de maestros; validar contra el Delphi antes de producción
+Lista completa y priorizada en **`docs/ESTADO_PROYECTO.md` §4**. Resumen:
 
-### Funcionalidades a portar desde `avicola` (ver `docs/ANALISIS_AVICOLA.md`)
-App base `C:\laragon\www\avicola`. Módulos/servicios presentes allí y aún ausentes en CentroGoma:
-- ✅ CajaService, ChequeService, CompraService (portados)
-- ✅ UI de caja — `Cajas\Index` (apertura con cierre anterior, cajas general/banco, transferencias, ajustes, cierre con transferencia) + `Cajas\Show` (libro con saldo corrido en efectivo, pestañas por documento)
-- ✅ **Gastos** (egreso de caja vía CajaService; editar/eliminar revierte) y **Bancos**
-- **Anticipos**, **Estadisticas**
-- ✅ Anular venta / recibo / OP (`AnulacionService`)
-- ✅ Buscador de clientes (Ventas, Presupuestos, Recibos, filtro de Recibos, Cheques)
-- **Services/Afip** — facturación electrónica (Wsaa, Wsfev1, AfipService) — último
-
-### Migración datos legacy — ✅ completado
-- `categorias` (201), `productos` (7.187), `clientes` (6.647), `proveedores` (251) importados vía `centrogoma:importar`
-
-### Backlog técnico
-- **Vista readOnly con cheque vinculado** — en detalle de Recibo/OP/Venta, mostrar enlace al cheque creado y su estado actual
-- **Dashboard con KPIs reales** — ventas del día, cheques por vencer, estado de caja, saldo CC
-- **Fase 6 pricing** — recargo por entrega, descuento por pago en efectivo sobre el total
-- **Pendiente menor Alpine** — si el usuario tipea cantidad antes de seleccionar artículo, la cantidad no pasa a `seleccionarArticulo`. Workaround: siempre seleccionar artículo primero.
+- **Antes de la salida real:** validar stock legacy · decisiones de administración sobre saldos a favor · limpiar
+  datos de prueba en producción · reimportar con el Delphi actualizado (`docs/DESPLIEGUE_VPS.md` §4).
+- **Seguridad:** cambiar la contraseña MySQL de desarrollo (sigue publicada en el repo de avícola).
+- **Funcionalidad:** Anticipos → Estadísticas → Dashboard KPIs → cheque vinculado en detalles → AFIP (último).
+- **Menores:** fase 6 pricing (recargo entrega / descuento efectivo) · en Ventas, la cantidad tipeada antes de
+  elegir artículo no pasa a `seleccionarArticulo` (workaround: elegir artículo primero).
