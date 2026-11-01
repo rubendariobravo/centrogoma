@@ -67,7 +67,7 @@ class ClienteOverridesTest extends TestCase
             'cliente_id' => $cliente->id,
             'articulo_id' => $this->art->id,
             'rubro_id' => null,
-            'precio_especial' => 1239.67,
+            'precio_especial' => 1239.6694, // 1500 / 1.21 con 4 decimales
             'activo' => 1,
         ]);
     }
@@ -124,12 +124,12 @@ class ClienteOverridesTest extends TestCase
 
         // El form carga el override como FINAL (1000 * 1.21 = 1210).
         // El usuario ingresa un nuevo final = 1234, que se guarda como neto.
-        // 1234 / 1.21 = 1019.83.
+        // 1234 / 1.21 = 1019.8347 (neto con 4 decimales).
         Livewire::test(ClienteForm::class, ['cliente' => $cli->id])
             ->set('overrides.0.precio_especial', 1234)
             ->call('save');
 
-        $this->assertDatabaseHas('cliente_precios', ['id' => $cp->id, 'precio_especial' => 1019.83]);
+        $this->assertDatabaseHas('cliente_precios', ['id' => $cp->id, 'precio_especial' => 1019.8347]);
         // Sigue habiendo solo 1 override (no se duplico)
         $this->assertEquals(1, ClientePrecio::where('cliente_id', $cli->id)->count());
     }

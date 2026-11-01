@@ -1,6 +1,6 @@
 # CentroGoma — Estado del proyecto
 
-**Última actualización:** 31/10/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 144 / 540 assertions, todos pasan
+**Última actualización:** 31/10/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 149 / 563 assertions, todos pasan
 
 Documento para retomar el trabajo en otra PC. Las reglas técnicas y la arquitectura están en `CLAUDE.md`;
 la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hecho, cómo armar el entorno y qué sigue.**
@@ -106,7 +106,7 @@ php artisan centrogoma:importar
 php artisan centrogoma:importar-saldos --corte=2026-05-28
 php artisan db:seed --class=UsuarioTestingSeeder     # usuario de pruebas (credenciales en el seeder)
 php artisan storage:link
-php artisan test                                     # 144 tests
+php artisan test                                     # 149 tests
 ```
 
 Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
@@ -119,19 +119,33 @@ Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
 
 ### Antes de la salida a producción real
 
-**Legacy local restaurada al 31/10/2026** (la BD `centrogoma` local sigue con la importación del corte 29/09). Dry-run contra
+**Legacy local restaurada al 31/10/2026** e importada en la BD `centrogoma` local (maestros + saldos al corte 31/10). Contra
 esa legacy: maestros → 61 artículos, 100 clientes y 3 proveedores nuevos; `importar-saldos --corte=2026-10-31` → 48
 clientes deudores ($146.512.590,03), 42 a favor (−$1.106.444,49), 47 proveedores acreedores ($58.551.662,81), 12 a favor
 nuestro (−$2.320.059,00). Movimientos con fecha posterior al corte: proveedor 182 (16/02/2109) y **proveedor 58 ROGUANT
 S.R.L. (28/11/2026, $425.539,38)** — confirmar si es error de carga o un comprobante a fecha futura.
 
-1. **Validar el stock importado** contra el Delphi (`articulos.stock` sale de `producto.stock`, que puede estar desactualizado).
-2. **Decisiones de administración sobre los saldos** (las lista el reporte de `importar-saldos`):
+**Simulación de ventas (31/10/2026):** las 25 ventas del Delphi de ese día se registraron con el `Ventas\Form` real dentro
+de una transacción con rollback (5 en CC). Con los precios cobrados coinciden al centavo totales, caja (efectivo $378.500,
+CC $5.674.300, tarjeta $15.000) y cuenta corriente. Corrigió el redondeo de precios (neto con 4 decimales), los totales
+recalculados en el servidor y la transacción en `registrarVenta()`. Dejó estas decisiones:
+
+1. **Stock: el Delphi no lo lleva** (`producto.stock` es NULL en los 7.230 productos): todo se importó con stock 0 y cada
+   venta lo deja negativo. Además la opción `stock_negativo` de `/config` no se aplica en ningún lado. Decidir: inventario
+   inicial, o `modifica_stock = false` en los importados hasta tenerlo (y hacer que Ventas respete la opción).
+2. **~1.258 artículos con precio de lista < $100** (capa impermeable $14, mameluco $4,60…), al parecer en dólares: en el
+   Delphi el vendedor tipea el precio real (10% de los renglones de octubre). Preguntar a administración cómo se cotizan;
+   si no, en el sistema nuevo se cobran $14 salvo que el vendedor corrija el precio.
+3. **El corte de saldos tiene que ser el último día operado en el Delphi** y el sistema nuevo arrancar al día siguiente:
+   las ventas en CC del día del corte ya están en el saldo inicial (si se superponen, la deuda se cuenta dos veces).
+4. Hay dos clientes "Consumidor final": el sembrado (#1, el que usan las ventas sin cliente) y el importado del Delphi
+   (legacy 1). Unificar o dar de baja el importado.
+5. **Decisiones de administración sobre los saldos** (las lista el reporte de `importar-saldos`):
    - Saldos **a favor** (43 clientes, 14 proveedores): hoy se cargan solo como asiento de CC. Alternativa: no cargarlos y dejarlos en el reporte. Casos grandes: El Piave −$358.500, Full Work −$776.771, Gomazar −$650.168.
    - **CONSUMIDOR FINAL** (−$10.000) queda excluido.
    - Pago a proveedor 182 con fecha **16/02/2109**: corregir la fecha en el Delphi antes del volcado final.
-3. **Limpiar en producción** lo que se cargue como prueba antes de reimportar (ventas, recibos, cajas de ensayo).
-4. **Salida:** volcado actualizado del Delphi → `docs/DESPLIEGUE_VPS.md` §4 (`importar --force` + `importar-saldos` con el corte del último día operado).
+6. **Limpiar en producción** lo que se cargue como prueba antes de reimportar (ventas, recibos, cajas de ensayo).
+7. **Salida:** volcado actualizado del Delphi → `docs/DESPLIEGUE_VPS.md` §4 (`importar --force` + `importar-saldos` con el corte del último día operado).
 
 ### Seguridad
 - **Cambiar la contraseña de MySQL** del usuario de desarrollo (`ruben`): estuvo en el historial de CentroGoma (ya limpiado) y **sigue publicada en el repo de avícola** (`phpunit.xml`), que necesita la misma limpieza.
@@ -143,7 +157,8 @@ S.R.L. (28/11/2026, $425.539,38)** — confirmar si es error de carga o un compr
 2. **Dashboard con KPIs reales** (ventas del día, cheques por vencer, caja, saldos CC).
 3. **Vista de cheque vinculado** en el detalle de Recibo/OP/Venta.
 4. **AFIP** (facturación electrónica, nota de crédito para anular ventas con CAE) — último; requiere certificados.
-5. Menores: recargo por entrega / descuento efectivo sobre el total (fase 6 pricing); cantidad tipeada antes de elegir artículo en Ventas; un anticipo ya aprobado no se puede corregir ni rechazar (igual que en avícola, cuya ayuda dice lo contrario): hoy solo queda un ajuste de caja.
+5. Menores: recargo por entrega / descuento efectivo sobre el total (fase 6 pricing); cantidad tipeada antes de elegir artículo en Ventas; el detalle de un comprobante de saldo inicial (`/ventas/{id}`) se ve
+como venta común (fila vacía, Totales en $0, aviso de caja); un anticipo ya aprobado no se puede corregir ni rechazar (igual que en avícola, cuya ayuda dice lo contrario): hoy solo queda un ajuste de caja.
 
 ### Para avícola (encontrado acá, no aplicado allá)
 - Mismo bug de percepciones al cambiar de cliente en `Ventas\Form` (fix en CentroGoma: refrescar `clienteData` en el listener `items-actualizados`).

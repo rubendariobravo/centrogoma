@@ -18,6 +18,7 @@ use App\Services\Cheque\ChequeService;
 use App\Services\Pricing\CotizacionRequest;
 use App\Services\Pricing\PriceEngine;
 use App\Livewire\Concerns\BuscaCliente;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -47,7 +48,7 @@ class Form extends Component
     // Ítems de la venta
     public array $items = [];
 
-    // Totales (calculados en Alpine, enviados por save para persistir)
+    // Totales: Alpine los muestra; al registrar se recalculan con calcularTotales()
     public float $descuento_general = 0;
 
     // Caja abierta
@@ -274,17 +275,70 @@ class Form extends Component
 
     private function cargarDatosCliente(int $id): void
     {
+        $this->clienteData = $this->datosFiscalesCliente($id);
+
+        // Letra según tipo IVA del cliente
+        $this->letra = $this->clienteData['tipoiva_codigo'] === '01' ? 'A' : 'B';
+    }
+
+    private function datosFiscalesCliente(int $id): array
+    {
         $c = Cliente::with('tipoIva')->findOrFail($id);
-        $this->clienteData = [
+
+        return [
             'razon_social'    => $c->razon_social,
             'percepcion_iva'  => (bool) $c->percepcion_iva,
             'porcentaje_iibb' => (float) ($c->porcentaje_iibb * 100),
             'es_mayorista'    => (bool) $c->es_mayorista,
             'tipoiva_codigo'  => $c->tipoIva?->codigo_afip ?? '99',
         ];
+    }
 
-        // Letra según tipo IVA del cliente
-        $this->letra = $c->tipoIva?->codigo_afip === '01' ? 'A' : 'B';
+    /**
+     * Totales de la venta desde los renglones. Es la fuente de verdad de lo que se graba: el
+     * total que calcula Alpine es solo para mostrar (misma fórmula, en el form). El subtotal con
+     * IVA sale del precio final unitario redondeado × cantidad, como se cobra en mostrador; el
+     * IVA es la diferencia con el neto, así neto + IVA = total sin centavos sueltos.
+     */
+    public static function calcularTotales(array $items, array $clienteData, float $descuentoGeneral = 0): array
+    {
+        $neto   = ['21' => 0.0, '10.5' => 0.0, '0' => 0.0];
+        $final  = ['21' => 0.0, '10.5' => 0.0, '0' => 0.0];
+        $subtotales = [];
+
+        foreach ($items as $i => $item) {
+            $iva      = (float) ($item['alicuota_iva'] ?? 0);
+            $precio   = (float) ($item['precio'] ?? 0);
+            $cantidad = (float) ($item['cantidad'] ?? 0);
+            $factor   = 1 - (float) ($item['descuento'] ?? 0) / 100;
+            $clave    = $iva == 21 ? '21' : ($iva == 10.5 ? '10.5' : '0');
+
+            $subtotales[$i] = round($cantidad * $precio * $factor, 2);
+            $neto[$clave]  += $subtotales[$i];
+            $final[$clave] += round(round($precio * (1 + $iva / 100), 2) * $cantidad * $factor, 2);
+        }
+
+        $neto21  = round($neto['21'], 2);
+        $neto105 = round($neto['10.5'], 2);
+        $bruto   = round(array_sum($final), 2);
+
+        $pctIibb       = (float) ($clienteData['porcentaje_iibb'] ?? 0) / 100;
+        $percepcion    = $pctIibb > 0 ? round(($neto21 + $neto105) * $pctIibb, 2) : 0.0;
+        $percepiva21   = ! empty($clienteData['percepcion_iva']) ? round($neto21 * 0.21 * 0.5, 2) : 0.0;
+        $descuentoMonto = round($bruto * $descuentoGeneral / 100, 2);
+
+        return [
+            'subtotales'    => $subtotales,
+            'neto_21'       => $neto21,
+            'neto_10_5'     => $neto105,
+            'neto_exento'   => round($neto['0'], 2),
+            'iva_21'        => round($final['21'] - $neto21, 2),
+            'iva_10_5'      => round($final['10.5'] - $neto105, 2),
+            'percepcion'    => $percepcion,
+            'percepiva21'   => $percepiva21,
+            'percepiva10_5' => 0.0,
+            'total'         => round($bruto - $descuentoMonto + $percepcion + $percepiva21, 2),
+        ];
     }
 
     public function addItem(): void
@@ -536,8 +590,11 @@ class Form extends Component
 
 
         $this->items = $payload['items'] ?? [];
-        $this->clienteData = $payload['clienteData'] ?? [];
-        $this->descuento_general = $payload['descuento_general'] ?? 0;
+        // Percepciones con los datos del cliente en la BD, no con los que manda el navegador.
+        $this->clienteData = $this->cliente_id
+            ? $this->datosFiscalesCliente($this->cliente_id)
+            : ['razon_social' => '', 'percepcion_iva' => false, 'porcentaje_iibb' => 0, 'es_mayorista' => false, 'tipoiva_codigo' => '99'];
+        $this->descuento_general = (float) ($payload['descuento_general'] ?? 0);
         $pagos = collect($payload['pagos'] ?? [])
             ->map(fn ($p) => [
                 'forma_pago' => $p['forma_pago'] ?? 'efectivo',
@@ -546,17 +603,6 @@ class Form extends Component
             ])
             ->filter(fn ($p) => $p['monto'] > 0)
             ->values();
-
-        $totales = [
-            'neto_21' => $payload['neto_21'] ?? 0,
-            'neto_10_5' => $payload['neto_10_5'] ?? 0,
-            'iva_21' => $payload['iva_21'] ?? 0,
-            'iva_10_5' => $payload['iva_10_5'] ?? 0,
-            'percepcion' => $payload['percepcion'] ?? 0,
-            'percepiva21' => $payload['percepiva21'] ?? 0,
-            'percepiva10_5' => $payload['percepiva10_5'] ?? 0,
-            'total' => $payload['total'] ?? 0,
-        ];
 
         $this->validate([
             'fecha'           => 'required|date',
@@ -641,6 +687,16 @@ class Form extends Component
             $this->items[$i]['precio_motor']      = $cot->precioUnitario;
         }
 
+        // Totales recalculados desde los renglones ya validados (con el precio del motor si hubo
+        // que corregirlo): lo que llega del navegador no se graba.
+        $totales = self::calcularTotales($this->items, $this->clienteData, $this->descuento_general);
+        if (abs((float) ($payload['total'] ?? 0) - $totales['total']) > 0.009) {
+            \Log::warning('registrarVenta: total del frontend distinto del recalculado', [
+                'total_fe' => $payload['total'] ?? null,
+                'total'    => $totales['total'],
+            ]);
+        }
+
         if ($pagos->isEmpty()) {
             $this->addError('pagos', 'Debe ingresar al menos una forma de pago.');
             return;
@@ -666,173 +722,182 @@ class Form extends Component
         $percepiva21    = (float) ($totales['percepiva21'] ?? 0);
         $percepiva10_5  = (float) ($totales['percepiva10_5'] ?? 0);
         $total          = (float) ($totales['total'] ?? 0);
-        $neto           = $neto_21 + $neto_10_5;
+        $neto           = round($neto_21 + $neto_10_5 + $totales['neto_exento'], 2);
         $montoPagado    = round($pagos->where('forma_pago', '!=', 'cuenta_corriente')->sum('monto'), 2);
         $saldo          = max(round($total - $montoPagado, 2), 0);
         $formaPagoPrincipal = $pagos->first()['forma_pago'];
 
-        $nroVenta = (Venta::max('nro_venta') ?? 0) + 1;
+        // Venta, renglones, stock, pagos, cheques, caja y CC: todo o nada.
+        DB::beginTransaction();
+        try {
+            $nroVenta = (Venta::lockForUpdate()->max('nro_venta') ?? 0) + 1;
 
-        // Si no hay cliente seleccionado, usar "Consumidor final" por defecto
-        $clienteIdFinal = $this->cliente_id ?: Cliente::where('razon_social', 'Consumidor final')->value('id');
+            // Si no hay cliente seleccionado, usar "Consumidor final" por defecto
+            $clienteIdFinal = $this->cliente_id ?: Cliente::where('razon_social', 'Consumidor final')->value('id');
 
-        $venta = Venta::create([
-            'cliente_id'       => $clienteIdFinal,
-            'user_id'          => auth()->id(),
-            'caja_id'          => $this->cajaId,
-            'nro_venta'        => $nroVenta,
-            'fecha'            => $this->fecha,
-            'hora'             => now()->toTimeString(),
-            'neto'             => $neto,
-            'descuento'        => $this->descuento_general,
-            'neto_21'          => $neto_21,
-            'neto_10_5'        => $neto_10_5,
-            'monto_iva21'      => $iva_21,
-            'monto_iva10_5'    => $iva_10_5,
-            'total'            => $total,
-            'saldo'            => $saldo,
-            'percepcion'       => $percepcion,
-            'percepiva21'      => $percepiva21,
-            'percepiva10_5'    => $percepiva10_5,
-            'tipo_comprobante' => $this->tipo_comprobante,
-            'letra_comprobante'=> $this->letra,
-            'estado'           => $saldo > 0 ? 'P' : 'C',
-            'observacion'      => $this->observacion ?: null,
-        ]);
-
-        // Detalles + movimientos de stock
-        foreach ($this->items as $item) {
-            $art = Articulo::find($item['articulo_id']);
-            if (! $art) continue;
-
-            $subtotalNeto = round((float)$item['cantidad'] * (float)$item['precio'] * (1 - (float)$item['descuento'] / 100), 2);
-            $subtotalIva  = round($subtotalNeto * ((float)$item['alicuota_iva'] / 100), 2);
-
-            DetVenta::create([
-                'venta_id'          => $venta->id,
-                'articulo_id'       => $art->id,
-                'descripcion'       => $art->descripcion,
-                'cantidad'          => $item['cantidad'],
-                'precio_unitario'   => $item['precio'],
-                'alicuota_iva'      => $item['alicuota_iva'],
-                'descuento'         => $item['descuento'],
-                'subtotal'          => $subtotalNeto,
-                'subtotal_iva'      => $subtotalIva,
-                // Metadata de pricing (auditoria)
-                'lista_precio_id'   => $item['lista_precio_id']   ?? null,
-                'tramo_aplicado_id' => $item['tramo_aplicado_id'] ?? null,
-                'regla_aplicada'    => $item['regla_aplicada']    ?? null,
-                'precio_motor'      => $item['precio_motor']      ?? null,
-                'precio_manual'     => ! empty($item['precio_manual']),
+            $venta = Venta::create([
+                'cliente_id'       => $clienteIdFinal,
+                'user_id'          => auth()->id(),
+                'caja_id'          => $this->cajaId,
+                'nro_venta'        => $nroVenta,
+                'fecha'            => $this->fecha,
+                'hora'             => now()->toTimeString(),
+                'neto'             => $neto,
+                'descuento'        => $this->descuento_general,
+                'neto_21'          => $neto_21,
+                'neto_10_5'        => $neto_10_5,
+                'monto_iva21'      => $iva_21,
+                'monto_iva10_5'    => $iva_10_5,
+                'total'            => $total,
+                'saldo'            => $saldo,
+                'percepcion'       => $percepcion,
+                'percepiva21'      => $percepiva21,
+                'percepiva10_5'    => $percepiva10_5,
+                'tipo_comprobante' => $this->tipo_comprobante,
+                'letra_comprobante'=> $this->letra,
+                'estado'           => $saldo > 0 ? 'P' : 'C',
+                'observacion'      => $this->observacion ?: null,
             ]);
 
-            if ($art->modifica_stock) {
-                $art->decrement('stock', $item['cantidad']);
+            // Detalles + movimientos de stock
+            foreach ($this->items as $item) {
+                $art = Articulo::find($item['articulo_id']);
+                if (! $art) continue;
 
-                MovimientoArticulo::create([
-                    'articulo_id'      => $art->id,
-                    'tipo'             => 'salida',
-                    'cantidad'         => $item['cantidad'],
-                    'fecha'            => $this->fecha,
-                    'referencia_type'  => Venta::class,
-                    'referencia_id'    => $venta->id,
-                    'observacion'      => "Venta #{$nroVenta}",
+                $subtotalNeto = round((float)$item['cantidad'] * (float)$item['precio'] * (1 - (float)$item['descuento'] / 100), 2);
+                $subtotalIva  = round($subtotalNeto * ((float)$item['alicuota_iva'] / 100), 2);
+
+                DetVenta::create([
+                    'venta_id'          => $venta->id,
+                    'articulo_id'       => $art->id,
+                    'descripcion'       => $art->descripcion,
+                    'cantidad'          => $item['cantidad'],
+                    'precio_unitario'   => $item['precio'],
+                    'alicuota_iva'      => $item['alicuota_iva'],
+                    'descuento'         => $item['descuento'],
+                    'subtotal'          => $subtotalNeto,
+                    'subtotal_iva'      => $subtotalIva,
+                    // Metadata de pricing (auditoria)
+                    'lista_precio_id'   => $item['lista_precio_id']   ?? null,
+                    'tramo_aplicado_id' => $item['tramo_aplicado_id'] ?? null,
+                    'regla_aplicada'    => $item['regla_aplicada']    ?? null,
+                    'precio_motor'      => $item['precio_motor']      ?? null,
+                    'precio_manual'     => ! empty($item['precio_manual']),
                 ]);
+
+                if ($art->modifica_stock) {
+                    $art->decrement('stock', $item['cantidad']);
+
+                    MovimientoArticulo::create([
+                        'articulo_id'      => $art->id,
+                        'tipo'             => 'salida',
+                        'cantidad'         => $item['cantidad'],
+                        'fecha'            => $this->fecha,
+                        'referencia_type'  => Venta::class,
+                        'referencia_id'    => $venta->id,
+                        'observacion'      => "Venta #{$nroVenta}",
+                    ]);
+                }
             }
-        }
 
-        $this->forma_pago = $formaPagoPrincipal;
-
-        foreach ($pagos as $pago) {
-            if ($pago['forma_pago'] === 'cuenta_corriente') {
-                continue;
-            }
-
-            $pagoVenta = $venta->pagos()->create([
-                'caja_id'    => $this->cajaId,
-                'fecha'      => $this->fecha,
-                'forma_pago' => $pago['forma_pago'],
-                'monto'      => $pago['monto'],
-            ]);
-
-            // Cheque de tercero recibido → ingresa a la cartera de valores (estado cartera).
-            // La plata entra a la caja banco al acreditarlo desde /cheques.
-            $ch = $pago['cheque'] ?? null;
-            if ($pago['forma_pago'] === 'cheque' && ! empty($ch['nro'])) {
-                app(ChequeService::class)->registrarRecibido([
-                    'banco_id'        => $ch['banco_id'] ?? null,
-                    'serie'           => ($ch['serie'] ?? '') ?: null,
-                    'nro_cheque'      => $ch['nro'],
-                    'monto'           => (float) $pago['monto'],
-                    'cliente_id'      => $this->cliente_id,
-                    'caja_origen_id'  => $this->cajaId,
-                    'venta_id'        => $venta->id,
-                    'es_echeq'        => (bool) ($ch['es_echeq'] ?? false),
-                    'fecha_recepcion' => $this->fecha,
-                    'fecha_pago'      => ($ch['fecha_pago'] ?? '') ?: $this->fecha,
-                    'librador_nombre' => $ch['librador_nombre'] ?? null,
-                    'librador_cuit'   => ($ch['librador_cuit'] ?? '') ?: null,
-                    'observacion'     => "Venta #{$nroVenta}",
-                    'referencia_type' => Venta::class,
-                    'referencia_id'   => $venta->id,
-                ]);
-            }
-        }
-
-        // Libro de caja: un asiento por cada forma de pago usada, con su importe. Un único
-        // asiento por el total imputado a la primera forma de pago rompía el arqueo en los
-        // pagos mixtos (ej. efectivo + tarjeta contaba todo como efectivo). La suma sigue
-        // siendo `total`, así que `cajas.total_ventas` no cambia.
-        if ($this->cajaId && ($caja = Caja::find($this->cajaId))) {
-            $cajaService = app(CajaService::class);
-            $opts = [
-                'referencia_type' => Venta::class,
-                'referencia_id'   => $venta->id,
-                'descripcion'     => "Venta #{$nroVenta}",
-                'fecha'           => $this->fecha,
-            ];
+            $this->forma_pago = $formaPagoPrincipal;
 
             foreach ($pagos as $pago) {
-                if ($pago['forma_pago'] === 'cuenta_corriente' || (float) $pago['monto'] <= 0) {
+                if ($pago['forma_pago'] === 'cuenta_corriente') {
                     continue;
                 }
-                $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', (float) $pago['monto'],
-                    [...$opts, 'forma_pago' => $pago['forma_pago']]);
-            }
 
-            // Lo que quedó a crédito entra al libro con forma cuenta_corriente: suma a
-            // total_ventas pero no cuenta como efectivo en el arqueo.
-            if ($saldo > 0.001) {
-                $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', $saldo,
-                    [...$opts, 'forma_pago' => 'cuenta_corriente']);
-            }
-        }
-
-        if ($hasCC && $saldo > 0 && $this->cliente_id) {
-            $cliente = Cliente::find($this->cliente_id);
-            if ($cliente) {
-                $saldoAnterior = (float) $cliente->saldo;
-                $nuevoSaldo    = round($saldoAnterior + $saldo, 2);
-                $cliente->update(['saldo' => $nuevoSaldo]);
-
-                CcCliente::create([
-                    'cliente_id'     => $this->cliente_id,
-                    'fecha'          => $this->fecha,
-                    'concepto'       => "Venta #{$nroVenta}",
-                    'debe'           => $saldo,
-                    'haber'          => 0,
-                    'saldo'          => $nuevoSaldo,
-                    'referencia_type'=> Venta::class,
-                    'referencia_id'  => $venta->id,
+                $pagoVenta = $venta->pagos()->create([
+                    'caja_id'    => $this->cajaId,
+                    'fecha'      => $this->fecha,
+                    'forma_pago' => $pago['forma_pago'],
+                    'monto'      => $pago['monto'],
                 ]);
-            }
-        }
 
-        // Marcar presupuesto origen como Facturado
-        if ($this->presupuestoOrigenId) {
-            Presupuesto::where('id', $this->presupuestoOrigenId)
-                ->whereIn('estado', ['A', 'V'])
-                ->update(['estado' => 'F', 'venta_id' => $venta->id]);
+                // Cheque de tercero recibido → ingresa a la cartera de valores (estado cartera).
+                // La plata entra a la caja banco al acreditarlo desde /cheques.
+                $ch = $pago['cheque'] ?? null;
+                if ($pago['forma_pago'] === 'cheque' && ! empty($ch['nro'])) {
+                    app(ChequeService::class)->registrarRecibido([
+                        'banco_id'        => $ch['banco_id'] ?? null,
+                        'serie'           => ($ch['serie'] ?? '') ?: null,
+                        'nro_cheque'      => $ch['nro'],
+                        'monto'           => (float) $pago['monto'],
+                        'cliente_id'      => $this->cliente_id,
+                        'caja_origen_id'  => $this->cajaId,
+                        'venta_id'        => $venta->id,
+                        'es_echeq'        => (bool) ($ch['es_echeq'] ?? false),
+                        'fecha_recepcion' => $this->fecha,
+                        'fecha_pago'      => ($ch['fecha_pago'] ?? '') ?: $this->fecha,
+                        'librador_nombre' => $ch['librador_nombre'] ?? null,
+                        'librador_cuit'   => ($ch['librador_cuit'] ?? '') ?: null,
+                        'observacion'     => "Venta #{$nroVenta}",
+                        'referencia_type' => Venta::class,
+                        'referencia_id'   => $venta->id,
+                    ]);
+                }
+            }
+
+            // Libro de caja: un asiento por cada forma de pago usada, con su importe. Un único
+            // asiento por el total imputado a la primera forma de pago rompía el arqueo en los
+            // pagos mixtos (ej. efectivo + tarjeta contaba todo como efectivo). La suma sigue
+            // siendo `total`, así que `cajas.total_ventas` no cambia.
+            if ($this->cajaId && ($caja = Caja::find($this->cajaId))) {
+                $cajaService = app(CajaService::class);
+                $opts = [
+                    'referencia_type' => Venta::class,
+                    'referencia_id'   => $venta->id,
+                    'descripcion'     => "Venta #{$nroVenta}",
+                    'fecha'           => $this->fecha,
+                ];
+
+                foreach ($pagos as $pago) {
+                    if ($pago['forma_pago'] === 'cuenta_corriente' || (float) $pago['monto'] <= 0) {
+                        continue;
+                    }
+                    $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', (float) $pago['monto'],
+                        [...$opts, 'forma_pago' => $pago['forma_pago']]);
+                }
+
+                // Lo que quedó a crédito entra al libro con forma cuenta_corriente: suma a
+                // total_ventas pero no cuenta como efectivo en el arqueo.
+                if ($saldo > 0.001) {
+                    $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', $saldo,
+                        [...$opts, 'forma_pago' => 'cuenta_corriente']);
+                }
+            }
+
+            if ($hasCC && $saldo > 0 && $this->cliente_id) {
+                $cliente = Cliente::find($this->cliente_id);
+                if ($cliente) {
+                    $saldoAnterior = (float) $cliente->saldo;
+                    $nuevoSaldo    = round($saldoAnterior + $saldo, 2);
+                    $cliente->update(['saldo' => $nuevoSaldo]);
+
+                    CcCliente::create([
+                        'cliente_id'     => $this->cliente_id,
+                        'fecha'          => $this->fecha,
+                        'concepto'       => "Venta #{$nroVenta}",
+                        'debe'           => $saldo,
+                        'haber'          => 0,
+                        'saldo'          => $nuevoSaldo,
+                        'referencia_type'=> Venta::class,
+                        'referencia_id'  => $venta->id,
+                    ]);
+                }
+            }
+
+            // Marcar presupuesto origen como Facturado
+            if ($this->presupuestoOrigenId) {
+                Presupuesto::where('id', $this->presupuestoOrigenId)
+                    ->whereIn('estado', ['A', 'V'])
+                    ->update(['estado' => 'F', 'venta_id' => $venta->id]);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
         }
 
         session()->flash('success', "Venta #{$nroVenta} registrada correctamente.");

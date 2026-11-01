@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (144 tests, 540 assertions — todos pasan)
+# Correr tests (149 tests, 563 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -410,10 +410,12 @@ Sistema multi-lista con overrides por cliente y precios por tramos de cantidad.
 
 ```php
 Pricing::final(float $neto, float $iva): float   // neto × (1 + iva/100), redondeado a 2 decimales
-Pricing::neto(float $final, float $iva): float   // final / (1 + iva/100), redondeado a 2 decimales
+Pricing::neto(float $final, float $iva): float   // final / (1 + iva/100), redondeado a 4 decimales
 ```
 
-**Los precios en BD siempre son NETOS.** El helper convierte solo para presentación.
+**Los precios en BD siempre son NETOS, con 4 decimales** (`articulo_precios.precio`, `cliente_precios.precio_especial`,
+el precio unitario del motor y el que tipea el operador en Ventas). Con 2, un final de $15.000 volvía como $14.999,99.
+El helper convierte solo para presentación.
 
 ### Pipeline de resolución de precio
 
@@ -516,12 +518,21 @@ this.items = this.items.map((item, i) => i === index ? { ...item, precio: 50, _p
 
 ## Precisión de cálculos
 
-**Regla:** los subtotales siempre se calculan desde el precio *mostrado* (display), no reconvirtiendo desde neto.
+**Regla:** el subtotal con IVA sale del precio *final* unitario redondeado a 2 decimales, no de reconvertir el
+subtotal neto. El IVA es la diferencia con el neto (neto + IVA = total, sin centavos sueltos), vea o no los netos el operador.
 
 ```
-✅ item._precioDisplay × cantidad × (1 - descuento/100)
-❌ (item.precio_neto × (1 + iva/100)) × cantidad × (1 - descuento/100)
+✅ round(round(precio_neto × (1 + iva/100), 2) × cantidad × (1 - descuento/100), 2)
+❌ round(subtotal_neto × (1 + iva/100), 2)
 ```
+
+**El total que se graba lo calcula el servidor:** `Ventas\Form::calcularTotales()` desde los renglones ya validados,
+con las percepciones del cliente en la BD. Alpine usa la misma fórmula solo para mostrar; el total y el `clienteData`
+del payload no se graban. `registrarVenta()` corre en una transacción (venta, renglones, stock, caja, CC y cheques:
+todo o nada).
+
+Verificado con las 25 ventas del Delphi del 31/10/2026 (simulación con el form real y rollback): con los precios
+cobrados, coinciden al centavo los totales, la caja y la cuenta corriente.
 
 ---
 
@@ -609,10 +620,11 @@ tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 6 tests (saldo, a favor, d
 tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selección y hooks por pantalla)
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
+tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 5 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 144 tests, 540 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 149 tests, 563 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -639,6 +651,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
 | `2026_09_29_000003_add_saldo_inicial_to_ventas_and_compras` | Flag de comprobante de saldo inicial (scope `comerciales()`) |
 | `2026_10_31_000001..2` | `anticipo_empleados` + `anticipo_pagos` (líneas de pago por caja) |
+| `2026_10_31_000003_precios_netos_con_4_decimales` | `articulo_precios.precio` y `cliente_precios.precio_especial` a `decimal(15,4)`; recupera el neto de 4 decimales de los tramos importados sin editar |
 
 ---
 

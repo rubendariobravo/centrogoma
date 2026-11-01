@@ -337,8 +337,8 @@ class PriceEngine
             }
         }
 
-        // Redondeo final del precio unitario a 2 decimales
-        $precioUnitario = round($precio, 2);
+        // Neto unitario con 4 decimales: con 2, un final de $15.000 volvía como $14.999,99.
+        $precioUnitario = round($precio, 4);
         $subtotal = round($precioUnitario * $request->cantidad, 2);
         $alicuotaIva = (float) $articulo->alicuota_iva;
         $montoIva = round($subtotal * $alicuotaIva / 100, 2);

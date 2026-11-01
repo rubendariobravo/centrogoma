@@ -118,7 +118,7 @@ class ListasCrudTest extends TestCase
         ]);
 
         // El form trabaja en FINAL (con IVA) por default y guarda NETO en DB.
-        // 150 final / 1.21 = 123.97 neto.
+        // 150 final / 1.21 = 123.9669 neto (4 decimales: vuelve a dar 150,00).
         $c = Livewire::test(ListaPrecios::class, ['lista' => $this->minorista->id])
             ->call('abrirModalNuevo', $art->id)
             ->set('tramoDesde', '1')
@@ -131,7 +131,7 @@ class ListasCrudTest extends TestCase
             'lista_precio_id' => $this->minorista->id,
             'cantidad_desde'  => 1,
             'cantidad_hasta'  => 10,
-            'precio'          => 123.97,
+            'precio'          => 123.9669,
         ]);
 
         $tramo = ArticuloPrecio::where('articulo_id', $art->id)->first();

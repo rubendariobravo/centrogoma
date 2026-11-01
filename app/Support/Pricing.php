@@ -18,12 +18,15 @@ class Pricing
         return round($neto * (1 + $iva / 100), 2);
     }
 
-    /** Convierte un precio final (con IVA) a precio neto sin IVA. */
+    /**
+     * Convierte un precio final (con IVA) a precio neto sin IVA. Con 4 decimales, para que
+     * final(neto(x)) devuelva x: con 2, $15.000 quedaba en 12.396,69 → $14.999,99.
+     */
     public static function neto(float $final, float $iva): float
     {
         if ($iva <= 0) {
             return round($final, 2);
         }
-        return round($final / (1 + $iva / 100), 2);
+        return round($final / (1 + $iva / 100), 4);
     }
 }

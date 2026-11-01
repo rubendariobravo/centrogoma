@@ -16,7 +16,7 @@ class ArticuloPrecio extends Model
     protected $casts = [
         'cantidad_desde' => 'decimal:3',
         'cantidad_hasta' => 'decimal:3',
-        'precio'         => 'decimal:2',
+        'precio'         => 'decimal:4',
         'activo'         => 'boolean',
     ];
 

@@ -731,9 +731,14 @@ function ventaForm(config) {
 
         subtotalMostrado(item) {
             if (this.verNetos) return parseFloat(item.subtotal) || 0;
-            // Multiplicar desde el precio final ya redondeado evita acumular
-            // el error de redondeo de la conversion neto→final en el subtotal.
-            const precio   = parseFloat(item._precioDisplay) || 0;
+            return this.subtotalFinal(item);
+        },
+        // Subtotal con IVA desde el precio final unitario redondeado (no reconvirtiendo el
+        // subtotal neto). Misma fórmula que Ventas\Form::calcularTotales(), que es la que se graba.
+        subtotalFinal(item) {
+            const neto     = parseFloat(item.precio) || 0;
+            const iva      = parseFloat(item.alicuota_iva) || 0;
+            const precio   = Math.round(neto * (1 + iva / 100) * 100) / 100;
             const cantidad = parseFloat(item.cantidad) || 0;
             const desc     = parseFloat(item.descuento) || 0;
             return Math.round(precio * cantidad * (1 - desc / 100) * 100) / 100;
@@ -760,7 +765,7 @@ function ventaForm(config) {
             const valorNum = parseFloat(valor) || 0;
             const neto = this.verNetos
                 ? valorNum
-                : (iva > 0 ? Math.round((valorNum / (1 + iva / 100)) * 100) / 100 : valorNum);
+                : (iva > 0 ? Math.round((valorNum / (1 + iva / 100)) * 10000) / 10000 : valorNum);
             item.precio = neto;
             item._precioDisplay = valorNum; // preservar lo tipeado mientras edita
             await this.$wire.marcarPrecioManual(index, neto);
@@ -870,25 +875,22 @@ function ventaForm(config) {
                 .filter(i => parseFloat(i.alicuota_iva) === 0)
                 .reduce((s, i) => s + parseFloat(i.subtotal || 0), 0);
         },
-        // Cuando se muestran finales, IVA = finalSubtotal - netoSubtotal.
-        // Esto evita que neto*tasa produzca centavos de drift frente al subtotal mostrado.
+        // IVA = subtotal final - subtotal neto, vea o no los netos: el total no depende de la vista
+        // y coincide con el que recalcula y graba el servidor.
         get iva21() {
-            if (this.verNetos) return Math.round(this.neto21 * 0.21 * 100) / 100;
             const finalBruto21 = this.items
                 .filter(i => parseFloat(i.alicuota_iva) === 21)
-                .reduce((s, i) => s + this.subtotalMostrado(i), 0);
+                .reduce((s, i) => s + this.subtotalFinal(i), 0);
             return Math.round((finalBruto21 - this.neto21) * 100) / 100;
         },
         get iva105() {
-            if (this.verNetos) return Math.round(this.neto105 * 0.105 * 100) / 100;
             const finalBruto105 = this.items
                 .filter(i => parseFloat(i.alicuota_iva) === 10.5)
-                .reduce((s, i) => s + this.subtotalMostrado(i), 0);
+                .reduce((s, i) => s + this.subtotalFinal(i), 0);
             return Math.round((finalBruto105 - this.neto105) * 100) / 100;
         },
         get subtotalBruto() {
-            if (this.verNetos) return this.neto21 + this.neto105 + this.netoExento + this.iva21 + this.iva105;
-            return this.items.reduce((s, i) => s + this.subtotalMostrado(i), 0);
+            return Math.round(this.items.reduce((s, i) => s + this.subtotalFinal(i), 0) * 100) / 100;
         },
         get descuentoMonto() {
             return Math.round(this.subtotalBruto * (parseFloat(this.descuentoGeneral || 0) / 100) * 100) / 100;

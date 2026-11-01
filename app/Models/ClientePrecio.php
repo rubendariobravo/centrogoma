@@ -14,7 +14,7 @@ class ClientePrecio extends Model
     ];
 
     protected $casts = [
-        'precio_especial' => 'decimal:2',
+        'precio_especial' => 'decimal:4',
         'bonificacion'    => 'decimal:2',
         'activo'          => 'boolean',
     ];
