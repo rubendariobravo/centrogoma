@@ -176,6 +176,58 @@ class ImportarSaldosLegacyTest extends TestCase
         $this->assertEquals(700, (float) $this->deudor->fresh()->saldo);
     }
 
+    public function test_reimportar_maestros_con_force_no_descuadra_el_saldo_de_la_ficha(): void
+    {
+        // Secuencia de la salida a producción: saldos ya cargados (ensayo) → importar --force
+        // de los maestros → importar-saldos de nuevo. El --force ponía la ficha en 0 y la
+        // corrida siguiente le restaba el saldo anterior: quedaba en negativo.
+        $this->importar();
+
+        $schema = Schema::connection('centro_goma_legacy');
+        $schema->dropIfExists('cliente');
+        $schema->dropIfExists('proveedor');
+        $schema->dropIfExists('localidades');
+        $schema->create('cliente', function (Blueprint $t) {
+            $t->integer('id_cliente');
+            $t->string('razon_social');
+            foreach (['nombre', 'cuit_dni', 'telefono', 'movil', 'mail', 'domicilio', 'estado'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->integer('id_localidad')->nullable();
+            $t->integer('id_tipoiva')->nullable();
+        });
+        $schema->create('proveedor', function (Blueprint $t) {
+            $t->integer('id_proveedor');
+            $t->string('razon_social');
+            foreach (['cuit', 'tel_fijo', 'tel_movil', 'mail', 'domicilio', 'estado'] as $c) {
+                $t->string($c)->nullable();
+            }
+        });
+        $schema->create('localidades', fn (Blueprint $t) => [$t->integer('id_localidad'), $t->string('localidad')]);
+
+        $l = DB::connection('centro_goma_legacy');
+        $l->table('cliente')->insert([
+            ['id_cliente' => 10, 'razon_social' => 'DEUDOR SA', 'estado' => 'A'],
+            ['id_cliente' => 20, 'razon_social' => 'A FAVOR SRL', 'estado' => 'A'],
+        ]);
+        $l->table('proveedor')->insert([['id_proveedor' => 5, 'razon_social' => 'PROVEEDOR SA', 'estado' => 'A']]);
+        \App\Models\TipoIva::create(['descripcion' => 'Consumidor Final', 'codigo_afip' => '05', 'estado' => 'A']);
+
+        $this->artisan('centrogoma:importar', ['tabla' => 'clientes', '--force' => true])->assertSuccessful();
+        $this->artisan('centrogoma:importar', ['tabla' => 'proveedores', '--force' => true])->assertSuccessful();
+
+        // La reimportación de maestros no toca los saldos.
+        $this->assertEquals(1200, (float) $this->deudor->fresh()->saldo);
+        $this->assertEquals(-250, (float) $this->aFavor->fresh()->saldo);
+        $this->assertEquals(1200, (float) $this->proveedor->fresh()->saldo);
+
+        $this->importar();
+
+        $this->assertEquals(1200, (float) $this->deudor->fresh()->saldo);
+        $this->assertEquals(-250, (float) $this->aFavor->fresh()->saldo);
+        $this->assertEquals(1200, (float) $this->proveedor->fresh()->saldo);
+    }
+
     public function test_saldo_inicial_no_suma_en_el_total_de_ventas(): void
     {
         $this->importar();

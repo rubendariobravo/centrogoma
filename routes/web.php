@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Dashboard;
+use App\Livewire\Estadisticas\Index as EstadisticasIndex;
+use App\Livewire\Estadisticas\Clientes as EstadisticasClientes;
+use App\Livewire\Estadisticas\Proveedores as EstadisticasProveedores;
 use App\Livewire\Articulos\Index as ArticulosIndex;
 use App\Livewire\Articulos\Form as ArticulosForm;
 use App\Livewire\Clientes\Index as ClientesIndex;
@@ -47,6 +50,11 @@ Route::redirect('/', 'login');
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('dashboard', Dashboard::class)->name('dashboard');
+
+    // Estadísticas
+    Route::get('estadisticas', EstadisticasIndex::class)->middleware('permission:ver_informes')->name('estadisticas');
+    Route::get('estadisticas/clientes', EstadisticasClientes::class)->middleware('permission:ver_informes')->name('estadisticas.clientes');
+    Route::get('estadisticas/proveedores', EstadisticasProveedores::class)->middleware('permission:ver_informes')->name('estadisticas.proveedores');
 
     // Presupuestos
     Route::get('presupuestos', PresupuestosIndex::class)->name('presupuestos');

@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (149 tests, 563 assertions — todos pasan)
+# Correr tests (155 tests, 606 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -112,6 +112,9 @@ php artisan centrogoma:importar [tabla] [--dry-run] [--force]
 # --dry-run : muestra qué se haría sin escribir nada
 # --force   : sobrescribe registros ya importados (update por legacy_id)
 ```
+
+**El saldo de la ficha (clientes/proveedores) no lo toca `--force`:** lo lleva la CC. Si lo pusiera en 0, la siguiente
+corrida de `importar-saldos` le restaría el saldo inicial anterior y la ficha quedaría descuadrada.
 
 **Idempotencia:** cada tabla nueva tiene una columna `legacy_id` (UNSIGNED INT, UNIQUE, nullable)
 agregada por la migración `2026_05_31_000001_add_legacy_id_to_main_tables`. El comando busca por
@@ -224,7 +227,11 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 
 | Ruta | Componente / Controlador | Nombre |
 |------|--------------------------|--------|
-| `GET /dashboard` | `Dashboard` | `dashboard` |
+| `GET /dashboard` | `Dashboard` (ventas día/mes, a cobrar, a pagar, cheques a 7 días, mayores deudores; sin stock) | `dashboard` |
+| **Estadísticas** (permiso `ver_informes`) | | |
+| `GET /estadisticas` | `Estadisticas\Index` (ventas, compras, gastos, anticipos, resultado) | `estadisticas` |
+| `GET /estadisticas/clientes` | `Estadisticas\Clientes` | `estadisticas.clientes` |
+| `GET /estadisticas/proveedores` | `Estadisticas\Proveedores` | `estadisticas.proveedores` |
 | **Presupuestos** | | |
 | `GET /presupuestos` | `Presupuestos\Index` | `presupuestos` |
 | `GET /presupuestos/create` | `Presupuestos\Form` | `presupuestos.create` |
@@ -528,7 +535,8 @@ subtotal neto. El IVA es la diferencia con el neto (neto + IVA = total, sin cent
 
 **El total que se graba lo calcula el servidor:** `Ventas\Form::calcularTotales()` desde los renglones ya validados,
 con las percepciones del cliente en la BD. Alpine usa la misma fórmula solo para mostrar; el total y el `clienteData`
-del payload no se graban. `registrarVenta()` corre en una transacción (venta, renglones, stock, caja, CC y cheques:
+del payload no se graban. El IVA de cada renglón (`det_ventas.subtotal_iva`) también es final − neto, así la suma de
+renglones cuadra con el cabezal. `registrarVenta()` corre en una transacción (venta, renglones, stock, caja, CC y cheques:
 todo o nada).
 
 Verificado con las 25 ventas del Delphi del 31/10/2026 (simulación con el form real y rollback): con los precios
@@ -616,15 +624,16 @@ tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
 tests/Feature/Anulaciones/AnulacionesTest.php  — 13 tests (venta/recibo/OP registradas con los forms reales y anuladas)
-tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 6 tests (saldo, a favor, dry-run, re-corrida, saldo ya cobrado)
+tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 7 tests (saldo, a favor, dry-run, re-corrida, saldo ya cobrado, --force no toca la ficha)
 tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selección y hooks por pantalla)
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
 tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 5 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
+tests/Feature/Estadisticas/EstadisticasTest.php — 5 tests (sin saldos iniciales, anticipos como sueldos, buscador, permiso, Dashboard)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 149 tests, 563 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 155 tests, 606 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -703,6 +712,7 @@ Lista completa y priorizada en **`docs/ESTADO_PROYECTO.md` §4**. Resumen:
 - **Antes de la salida real:** validar stock legacy · decisiones de administración sobre saldos a favor · limpiar
   datos de prueba en producción · reimportar con el Delphi actualizado (`docs/DESPLIEGUE_VPS.md` §4).
 - **Seguridad:** cambiar la contraseña MySQL de desarrollo (sigue publicada en el repo de avícola).
-- **Funcionalidad:** Estadísticas → Dashboard KPIs → cheque vinculado en detalles → AFIP (último).
+- **Funcionalidad** (ver `docs/COMPARACION_DELPHI.md`): decidir impresora fiscal vs. todo electrónico → AFIP (FE + nota
+  de crédito) → artículos en USD → libros IVA ventas/compras → mejoras chicas (tarjeta por marca, Mercado Pago…).
 - **Menores:** fase 6 pricing (recargo entrega / descuento efectivo) · en Ventas, la cantidad tipeada antes de
   elegir artículo no pasa a `seleccionarArticulo` (workaround: elegir artículo primero).

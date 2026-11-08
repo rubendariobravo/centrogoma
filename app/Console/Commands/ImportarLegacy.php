@@ -345,7 +345,6 @@ class ImportarLegacy extends Command
                 'localidad'     => $localidad,
                 'tipoiva_id'    => $tipoivaId,
                 'estado'        => strtoupper(trim($cli->estado ?: 'A')),
-                'saldo'         => 0,
             ];
 
             if (! $this->dryRun) {
@@ -354,7 +353,9 @@ class ImportarLegacy extends Command
                         $exists->update($data);
                         $this->updated++;
                     } else {
-                        Cliente::create(array_merge($data, ['legacy_id' => $cli->id_cliente]));
+                        // El saldo de la ficha lo lleva la CC (importar-saldos, recibos, ventas):
+                        // el --force no lo toca, o la siguiente corrida de saldos lo descuadra.
+                        Cliente::create(array_merge($data, ['legacy_id' => $cli->id_cliente, 'saldo' => 0]));
                         $this->created++;
                     }
                 } catch (\Throwable $e) {
@@ -404,7 +405,6 @@ class ImportarLegacy extends Command
                 'email'         => trim($prov->mail ?? ''),
                 'domicilio'     => trim($prov->domicilio ?? ''),
                 'estado'        => strtoupper(trim($prov->estado ?: 'A')),
-                'saldo'         => 0,
             ];
 
             if (! $this->dryRun) {
@@ -413,7 +413,8 @@ class ImportarLegacy extends Command
                         $exists->update($data);
                         $this->updated++;
                     } else {
-                        Proveedor::create(array_merge($data, ['legacy_id' => $prov->id_proveedor]));
+                        // Igual que en clientes: el saldo lo lleva la CC, el --force no lo toca.
+                        Proveedor::create(array_merge($data, ['legacy_id' => $prov->id_proveedor, 'saldo' => 0]));
                         $this->created++;
                     }
                 } catch (\Illuminate\Database\QueryException $e) {
@@ -425,7 +426,7 @@ class ImportarLegacy extends Command
                                 $exists->update($dataFix);
                                 $this->updated++;
                             } else {
-                                Proveedor::create(array_merge($dataFix, ['legacy_id' => $prov->id_proveedor]));
+                                Proveedor::create(array_merge($dataFix, ['legacy_id' => $prov->id_proveedor, 'saldo' => 0]));
                                 $this->created++;
                             }
                             $this->warn("  Proveedor #{$prov->id_proveedor} ({$data['razon_social']}): CUIT duplicado → guardado sin CUIT.");

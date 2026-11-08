@@ -37,6 +37,35 @@ new class extends Component
             Dashboard
         </a>
 
+        {{-- ESTADÍSTICAS --}}
+        @can('ver_informes')
+        <div x-data="{ open: {{ $isGroup(['estadisticas*']) ? 'true' : 'false' }} }">
+            <button @click="open = !open"
+                    class="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-400 hover:text-white transition-colors">
+                <span class="flex items-center gap-2.5 font-medium text-xs uppercase tracking-wider">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Estadísticas
+                </span>
+                <svg class="w-3.5 h-3.5 transition-transform duration-150" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="open" class="mt-0.5 space-y-0.5 pl-4">
+                <a href="{{ route('estadisticas') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('estadisticas') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Resumen del comercio
+                </a>
+                <a href="{{ route('estadisticas.clientes') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('estadisticas.clientes') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Clientes top
+                </a>
+                <a href="{{ route('estadisticas.proveedores') }}" wire:navigate class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {{ $isActive('estadisticas.proveedores') }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-60"></span> Proveedores top
+                </a>
+            </div>
+        </div>
+        @endcan
+
         {{-- VENTAS --}}
         <div x-data="{ open: {{ $isGroup(['ventas*','clientes*','recibos*','presupuestos*']) ? 'true' : 'true' }} }">
             <button @click="open = !open"

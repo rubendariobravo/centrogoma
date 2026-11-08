@@ -43,13 +43,20 @@
             </div>
         </div>
 
-        {{-- Total semana --}}
+        {{-- Ventas del mes --}}
         <div class="bg-white rounded-xl shadow-sm p-5">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total semana</p>
-                    <p class="mt-1.5 text-2xl font-bold text-gray-900">$ {{ number_format($totalSemana, 0, ',', '.') }}</p>
-                    <p class="mt-0.5 text-sm text-gray-500">{{ $ventasSemana }} comprobantes</p>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Ventas del mes</p>
+                    <p class="mt-1.5 text-2xl font-bold text-gray-900">$ {{ number_format($totalMes, 0, ',', '.') }}</p>
+                    <p class="mt-0.5 text-sm text-gray-500">
+                        @if($variacionMes === null)
+                            sin ventas el mes anterior
+                        @else
+                            <span class="font-medium {{ $variacionMes >= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $variacionMes >= 0 ? '+' : '' }}{{ number_format($variacionMes, 1, ',', '.') }}%</span>
+                            vs. mismos días del mes anterior
+                        @endif
+                    </p>
                 </div>
                 <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                     <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -68,13 +75,13 @@
             </div>
         </div>
 
-        {{-- Clientes activos --}}
+        {{-- A cobrar --}}
         <div class="bg-white rounded-xl shadow-sm p-5">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Clientes</p>
-                    <p class="mt-1.5 text-2xl font-bold text-gray-900">{{ $clientesActivos }}</p>
-                    <p class="mt-0.5 text-sm text-gray-500">activos en el sistema</p>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">A cobrar</p>
+                    <p class="mt-1.5 text-2xl font-bold text-gray-900">$ {{ number_format($aCobrar, 0, ',', '.') }}</p>
+                    <p class="mt-0.5 text-sm text-gray-500">{{ $deudores }} {{ $deudores === 1 ? 'cliente deudor' : 'clientes deudores' }}</p>
                 </div>
                 <div class="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
                     <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -82,39 +89,33 @@
                     </svg>
                 </div>
             </div>
-            <div class="mt-3 pt-3 border-t border-[#DDE1E7] flex items-center gap-1 text-xs text-gray-500">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                Artículos activos: <span class="font-medium text-gray-700">{{ $articulosActivos }}</span>
+            <div class="mt-3 pt-3 border-t border-[#DDE1E7]">
+                <a href="{{ route('cc-clientes') }}" wire:navigate class="text-xs text-gray-500 hover:underline">Cuentas corrientes de clientes →</a>
             </div>
         </div>
 
-        {{-- Stock crítico --}}
-        <div class="bg-white rounded-xl shadow-sm p-5 {{ $stockCritico > 0 ? 'border border-red-200 bg-red-50' : '' }}">
+        {{-- A pagar --}}
+        <div class="bg-white rounded-xl shadow-sm p-5">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="text-xs font-medium {{ $stockCritico > 0 ? 'text-red-500' : 'text-gray-500' }} uppercase tracking-wide">Stock crítico</p>
-                    <p class="mt-1.5 text-2xl font-bold {{ $stockCritico > 0 ? 'text-red-700' : 'text-gray-900' }}">{{ $stockCritico }}</p>
-                    <p class="mt-0.5 text-sm {{ $stockCritico > 0 ? 'text-red-500' : 'text-gray-500' }}">artículos bajo mínimo</p>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">A pagar</p>
+                    <p class="mt-1.5 text-2xl font-bold text-gray-900">$ {{ number_format($aPagar, 0, ',', '.') }}</p>
+                    <p class="mt-0.5 text-sm text-gray-500">saldo con proveedores</p>
                 </div>
-                <div class="w-10 h-10 rounded-lg {{ $stockCritico > 0 ? 'bg-red-100' : 'bg-gray-100' }} flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 {{ $stockCritico > 0 ? 'text-red-600' : 'text-gray-500' }}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                     </svg>
                 </div>
             </div>
-            <div class="mt-3 pt-3 border-t {{ $stockCritico > 0 ? 'border-red-200' : 'border-[#DDE1E7]' }}">
-                <a href="{{ route('articulos') }}" wire:navigate
-                   class="text-xs {{ $stockCritico > 0 ? 'text-red-600 font-medium' : 'text-gray-500' }} hover:underline">
-                    Ver artículos →
-                </a>
+            <div class="mt-3 pt-3 border-t border-[#DDE1E7] text-xs text-gray-500">
+                Cheques propios sin debitar: <span class="font-medium text-gray-700">$ {{ number_format($chequesPropiosPendientes, 0, ',', '.') }}</span>
             </div>
         </div>
 
     </div>
 
-    {{-- Fila inferior: últimas ventas + alertas stock --}}
+    {{-- Fila inferior: últimas ventas + cheques y deudores --}}
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
         {{-- Últimas ventas --}}
@@ -166,37 +167,53 @@
             @endif
         </div>
 
-        {{-- Alertas stock --}}
-        <div class="bg-white rounded-xl border border-[#DDE1E7]">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[#DDE1E7]">
-                <h2 class="text-sm font-semibold text-gray-900">Stock crítico</h2>
-                @if($stockCritico > 6)
-                    <span class="text-xs text-red-600 font-medium">+{{ $stockCritico - 6 }} más</span>
+        <div class="space-y-4">
+            {{-- Cheques por vencer --}}
+            <div class="bg-white rounded-xl border border-[#DDE1E7]">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-[#DDE1E7]">
+                    <h2 class="text-sm font-semibold text-gray-900">Cheques a {{ $diasCheques }} días</h2>
+                    <a href="{{ route('cheques') }}" wire:navigate class="text-xs text-blue-600 hover:underline">Ver cheques →</a>
+                </div>
+                @if($chequesPorVencer->isEmpty())
+                    <p class="px-5 py-8 text-center text-sm text-gray-400">Ningún cheque vence en los próximos {{ $diasCheques }} días</p>
+                @else
+                    <ul class="divide-y divide-[#E9ECF0]">
+                        @foreach($chequesPorVencer as $ch)
+                        <li class="flex items-center justify-between px-5 py-3">
+                            <div class="min-w-0 mr-3">
+                                <p class="text-sm font-medium text-gray-900 truncate">
+                                    {{ $ch->tipo === 'propio' ? ($ch->proveedor?->razon_social ?? 'Cheque propio') : ($ch->librador_nombre ?: ($ch->cliente?->razon_social ?? 'Cheque de tercero')) }}
+                                </p>
+                                <p class="text-xs text-gray-400">{{ $ch->tipo_label }} · {{ $ch->estado_label }} · N° {{ $ch->nro_cheque }}</p>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="text-sm font-bold text-gray-900">$ {{ number_format($ch->monto, 2, ',', '.') }}</p>
+                                <p class="text-xs {{ $ch->estado_vencimiento === 'vencido' ? 'text-red-600 font-medium' : 'text-gray-400' }}">{{ $ch->fecha_pago?->format('d/m/Y') }}</p>
+                            </div>
+                        </li>
+                        @endforeach
+                    </ul>
                 @endif
             </div>
-            @if($alertasStock->isEmpty())
-                <div class="flex flex-col items-center justify-center py-12 text-center text-gray-400">
-                    <svg class="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <p class="text-sm">Stock OK</p>
+
+            {{-- Mayores deudores --}}
+            <div class="bg-white rounded-xl border border-[#DDE1E7]">
+                <div class="px-5 py-4 border-b border-[#DDE1E7]">
+                    <h2 class="text-sm font-semibold text-gray-900">Mayores deudores</h2>
                 </div>
-            @else
-                <ul class="divide-y divide-[#E9ECF0]">
-                    @foreach($alertasStock as $art)
-                    <li class="flex items-center justify-between px-5 py-3 hover:bg-[#E9ECF0]">
-                        <div class="min-w-0 mr-3">
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ $art->descripcion }}</p>
-                            <p class="text-xs text-gray-400 font-mono">{{ $art->codigo }}</p>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <p class="text-sm font-bold text-red-600">{{ number_format($art->stock, 2, ',', '.') }}</p>
-                            <p class="text-xs text-gray-400">mín: {{ number_format($art->stock_minimo, 2, ',', '.') }}</p>
-                        </div>
-                    </li>
-                    @endforeach
-                </ul>
-            @endif
+                @if($mayoresDeudores->isEmpty())
+                    <p class="px-5 py-8 text-center text-sm text-gray-400">Ningún cliente con deuda</p>
+                @else
+                    <ul class="divide-y divide-[#E9ECF0]">
+                        @foreach($mayoresDeudores as $cli)
+                        <li class="flex items-center justify-between px-5 py-2.5">
+                            <p class="text-sm text-gray-900 truncate mr-3">{{ $cli->razon_social }}</p>
+                            <p class="text-sm font-semibold text-gray-900 whitespace-nowrap">$ {{ number_format($cli->saldo, 2, ',', '.') }}</p>
+                        </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
         </div>
 
     </div>

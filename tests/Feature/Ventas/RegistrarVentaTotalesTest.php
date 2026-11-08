@@ -87,6 +87,8 @@ class RegistrarVentaTotalesTest extends TestCase
         $this->assertEquals(15000.00, (float) $venta->total);
         $this->assertEquals(12396.69, (float) $venta->neto_21);
         $this->assertEquals(2603.31, (float) $venta->monto_iva21);
+        // El renglón guarda el mismo IVA que el cabezal (final − neto), no neto × 21%: 2.603,30.
+        $this->assertEquals(2603.31, (float) DetVenta::firstOrFail()->subtotal_iva);
         $this->assertEquals('C', $venta->estado);
         $this->assertEquals(0, (float) $venta->saldo);
     }

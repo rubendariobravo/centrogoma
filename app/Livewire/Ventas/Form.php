@@ -305,6 +305,7 @@ class Form extends Component
         $neto   = ['21' => 0.0, '10.5' => 0.0, '0' => 0.0];
         $final  = ['21' => 0.0, '10.5' => 0.0, '0' => 0.0];
         $subtotales = [];
+        $ivas       = [];
 
         foreach ($items as $i => $item) {
             $iva      = (float) ($item['alicuota_iva'] ?? 0);
@@ -314,8 +315,10 @@ class Form extends Component
             $clave    = $iva == 21 ? '21' : ($iva == 10.5 ? '10.5' : '0');
 
             $subtotales[$i] = round($cantidad * $precio * $factor, 2);
+            $finalLinea     = round(round($precio * (1 + $iva / 100), 2) * $cantidad * $factor, 2);
+            $ivas[$i]       = round($finalLinea - $subtotales[$i], 2);
             $neto[$clave]  += $subtotales[$i];
-            $final[$clave] += round(round($precio * (1 + $iva / 100), 2) * $cantidad * $factor, 2);
+            $final[$clave] += $finalLinea;
         }
 
         $neto21  = round($neto['21'], 2);
@@ -329,6 +332,7 @@ class Form extends Component
 
         return [
             'subtotales'    => $subtotales,
+            'ivas'          => $ivas,      // IVA por renglón: final − neto, cuadra con el del cabezal
             'neto_21'       => $neto21,
             'neto_10_5'     => $neto105,
             'neto_exento'   => round($neto['0'], 2),
@@ -760,12 +764,12 @@ class Form extends Component
             ]);
 
             // Detalles + movimientos de stock
-            foreach ($this->items as $item) {
+            foreach ($this->items as $i => $item) {
                 $art = Articulo::find($item['articulo_id']);
                 if (! $art) continue;
 
-                $subtotalNeto = round((float)$item['cantidad'] * (float)$item['precio'] * (1 - (float)$item['descuento'] / 100), 2);
-                $subtotalIva  = round($subtotalNeto * ((float)$item['alicuota_iva'] / 100), 2);
+                $subtotalNeto = $totales['subtotales'][$i];
+                $subtotalIva  = $totales['ivas'][$i];
 
                 DetVenta::create([
                     'venta_id'          => $venta->id,
