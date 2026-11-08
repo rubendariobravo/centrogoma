@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (165 tests, 669 assertions — todos pasan)
+# Correr tests (176 tests, 728 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -631,6 +631,7 @@ Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 tests/Unit/Pricing/PriceEngineTest.php          — 15 unit tests
 tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
+tests/Feature/Listas/AjustePreciosTest.php      — 11 tests (redondeo, vista previa, historial y deshacer, filtros, por costo, precio base, grilla, tramos en el lugar, margen)
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
@@ -645,7 +646,7 @@ tests/Feature/Estadisticas/EstadisticasTest.php — 5 tests (sin saldos iniciale
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 165 tests, 669 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 176 tests, 728 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -672,6 +673,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
 | `2026_09_29_000003_add_saldo_inicial_to_ventas_and_compras` | Flag de comprobante de saldo inicial (scope `comerciales()`) |
 | `2026_10_31_000001..2` | `anticipo_empleados` + `anticipo_pagos` (líneas de pago por caja) |
+| `2026_11_07_000002_create_ajustes_precios_tables` | Historial de ajustes masivos de precios (`ajustes_precios`, `ajuste_precio_items`) |
 | `2026_11_07_000001_presupuestos_sin_cliente` | `presupuestos.cliente_id` opcional + `cliente_nombre` |
 | `2026_10_31_000003_precios_netos_con_4_decimales` | `articulo_precios.precio` y `cliente_precios.precio_especial` a `decimal(15,4)`; recupera el neto de 4 decimales de los tramos importados sin editar |
 
@@ -706,15 +708,33 @@ El form de artículos solo edita tramos de la **lista default**. Para otras list
 
 `$verNetosTramos` (bool, default `false`): toggle neto/final en la grilla de tramos del form.
 
+Al guardar, los tramos se **actualizan en el lugar** (no se borran y recrean): su id lo usan el Excel de precios, el
+historial de ajustes y `det_ventas.tramo_aplicado_id`. Muestra el **precio sugerido** (costo × (1+IVA) × (1+margen),
+la fórmula del Delphi), el margen real del precio actual y "Usar sugerido" (redondeado a $100).
+
 ---
 
 ## Listas de precios — herramientas de edición masiva
 
-Desde `/listas-precios/{lista}/precios`:
+Desde `/listas-precios/{lista}/precios`. Lógica en `App\Services\Pricing\AjustePrecios`.
 
-1. **Ajuste % bulk** — sube/baja todos los precios (o solo un rubro) por un porcentaje. `wire:confirm` antes de ejecutar.
+1. **Ajuste masivo** — modo *precio de venta* (± % sobre el final) o *costo* (± % sobre el costo y precio = costo ×
+   IVA × margen, como el Delphi; solo lista default, omite artículos sin costo). **Redondeo del final** a $1/$10/$50/$100
+   (default $100: en el Delphi el 66% de los precios son múltiplos de $100), sin que el paso supere el 10% del precio
+   (un artículo de $9,60 no pasa a $0 ni a $100). Filtros: rubro, marca, la búsqueda actual y/o los artículos marcados
+   en el listado. Bajar: máximo 99%. **Vista previa obligatoria** (cantidad + muestra antes/después) y **historial**
+   (`ajustes_precios` + `ajuste_precio_items` con el precio anterior) con **Deshacer**, que no pisa los precios
+   cambiados después. Escribe en lote (UPDATE ... CASE, sin eventos Eloquent): 7.248 precios en ~5 s.
 2. **Exportar/Importar Excel** — export `.xlsx` con ID_TRAMO en col A y precio editable en col G (fondo amarillo). Import lee col[0]=ID_TRAMO, col[6]=precio; modo `'final'` convierte con `Pricing::neto()`.
-3. **Grilla editable inline** — desactiva paginación, muestra inputs amarillos por tramo. `guardarGrilla()` guarda en batch.
+3. **Grilla editable** — paginada (25 por página); lo editado se conserva al cambiar de página y `guardarGrilla()`
+   graba solo los tramos que cambiaron.
+
+**Precio base sincronizado:** `articulos.precio_unitario` = tramo base (menor "desde") de la lista default, vía
+`AjustePrecios::sincronizarPrecioBase()` después de ajuste, deshacer, Excel, grilla, modal de tramo y ficha del
+artículo. El motor lo usa cuando una lista no tiene tramo para el artículo: si quedaba viejo, se cobraba el precio viejo.
+
+En el listado se ve el costo, el **margen real** (en rojo si está por debajo del configurado) y el precio sugerido.
+Al registrar una compra que sube costos (`ajuste_automatico`), `/compras` avisa qué artículos quedaron con margen bajo.
 
 ---
 

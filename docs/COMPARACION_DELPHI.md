@@ -67,7 +67,8 @@ brecha.
 |---|---|---|---|
 | ABM de productos y rubros, búsqueda por descripción/código | diario | `/articulos`, `/rubros`, `/marcas` | ✅ |
 | Costo + margen → precio | diario | `precio_costo`, `margen`, tramos por lista | ✅ |
-| Modificar precios de la selección (%) | periódico | Ajuste % masivo por lista/rubro + Excel | ✅ |
+| Modificar precios de la selección (%) | periódico | Ajuste masivo por precio o por costo × margen, con redondeo, filtros (rubro, marca, búsqueda, selección), vista previa y deshacer + Excel + grilla | ✅ (07/11) |
+| Precio sugerido por costo y margen | diario | En la ficha y el listado, con margen real y aviso al comprar | ✅ (07/11) |
 | Agregar texto a la descripción de la selección | ocasional | No existe | ❌ menor |
 | Imprimir lista de precios | periódico | Exportar Excel por lista | 🟡 sin PDF imprimible |
 | Búsqueda por código de barras | ? | No hay campo de barras | ❓ preguntar |

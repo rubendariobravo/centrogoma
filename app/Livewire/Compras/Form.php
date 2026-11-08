@@ -8,7 +8,9 @@ use App\Models\Compra;
 use App\Models\DetCompra;
 use App\Models\FormaPago;
 use App\Models\Proveedor;
+use App\Models\VariableEntorno;
 use App\Services\Compra\CompraService;
+use App\Services\Pricing\AjustePrecios;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
@@ -209,6 +211,15 @@ class Form extends Component
         });
 
         session()->flash('success', "Compra registrada correctamente.");
+
+        // Si la compra subió costos, avisar qué artículos quedaron por debajo de su margen.
+        if (VariableEntorno::get('ajuste_automatico', true)) {
+            $bajos = AjustePrecios::conMargenBajo(array_filter(array_column($this->items, 'articulo_id')));
+            if ($bajos->isNotEmpty()) {
+                session()->flash('margenes', $bajos->all());
+            }
+        }
+
         $this->redirect(route('compras'), navigate: true);
     }
 

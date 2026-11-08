@@ -56,7 +56,7 @@
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
                        {{ $showAjustePanel ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-[#DDE1E7] text-gray-700 hover:bg-[#E9ECF0]' }}">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-            Ajuste %
+            Ajuste masivo
         </button>
 
         {{-- Exportar Excel --}}
@@ -81,12 +81,19 @@
 
         {{-- Editar en grilla --}}
         @if($modoGrilla)
-        <button wire:click="guardarGrilla" type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+        <button wire:click="guardarGrilla" type="button" @disabled($pendientes === 0)
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-40">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Guardar grilla
+            Guardar grilla{{ $pendientes ? " ({$pendientes})" : '' }}
         </button>
+        @if($pendientes)
+        <button wire:click="descartarGrilla" type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-white border-[#DDE1E7] text-gray-700 hover:bg-[#E9ECF0] transition-colors">
+            Descartar cambios
+        </button>
+        @endif
         <button wire:click="desactivarModoGrilla" type="button"
+                @if($pendientes) wire:confirm="Hay {{ $pendientes }} precios sin guardar. ¿Salir igual?" @endif
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-white border-[#DDE1E7] text-gray-700 hover:bg-[#E9ECF0] transition-colors">
             Salir de grilla
         </button>
@@ -99,27 +106,30 @@
         @endif
     </div>
 
-    {{-- Panel: Ajuste % --}}
+    {{-- Panel: Ajuste masivo (AjustePrecios) --}}
     @if($showAjustePanel)
     <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
         <div class="flex items-start justify-between mb-3">
             <div>
-                <h3 class="text-sm font-semibold text-amber-900">Ajuste de precios por porcentaje</h3>
-                <p class="text-xs text-amber-700 mt-0.5">Sube o baja todos los precios de la lista en un porcentaje. Operación irreversible.</p>
+                <h3 class="text-sm font-semibold text-amber-900">Ajuste masivo de precios</h3>
+                <p class="text-xs text-amber-700 mt-0.5">Calculá la vista previa, revisala y aplicá. Queda en el historial y se puede deshacer.</p>
             </div>
             <button wire:click="cerrarAjustePanel" class="text-amber-400 hover:text-amber-700 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
+
         <div class="flex flex-wrap items-end gap-3">
             <div>
-                <label class="block text-xs font-medium text-amber-800 mb-1">Porcentaje</label>
-                <div class="relative">
-                    <input wire:model="ajustePct" type="number" min="0.01" step="0.01" placeholder="ej. 10"
-                           class="w-32 pr-7 pl-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white {{ $errors->has('ajustePct') ? 'border-red-400' : '' }}">
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 text-sm font-medium">%</span>
-                </div>
-                @error('ajustePct') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <label class="block text-xs font-medium text-amber-800 mb-1">Ajustar</label>
+                <select wire:model.live="ajusteModo"
+                        class="text-sm border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white">
+                    <option value="porcentaje">El precio de venta</option>
+                    @if($lista->es_default)
+                    <option value="costo">El costo (precio = costo × IVA × margen)</option>
+                    @endif
+                </select>
+                @error('ajusteModo') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>
                 <label class="block text-xs font-medium text-amber-800 mb-1">Tipo</label>
@@ -135,20 +145,122 @@
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-medium text-amber-800 mb-1">Rubro (opcional)</label>
-                <select wire:model="ajusteRubroFiltro"
+                <label class="block text-xs font-medium text-amber-800 mb-1">Porcentaje</label>
+                <div class="relative">
+                    <input wire:model.live.debounce.400ms="ajustePct" type="number" min="0.01" step="0.01" placeholder="ej. 10"
+                           class="w-28 pr-7 pl-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white {{ $errors->has('ajustePct') ? 'border-red-400' : '' }}">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 text-sm font-medium">%</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-amber-800 mb-1">Redondear el precio final</label>
+                <select wire:model.live="ajusteRedondeo"
                         class="text-sm border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white">
-                    <option value="">Todos los rubros</option>
-                    @foreach($rubros as $r)
-                        <option value="{{ $r->id }}">{{ $r->descripcion }}</option>
+                    @foreach($redondeos as $paso => $label)
+                        <option value="{{ $paso }}">{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <button wire:click="aplicarAjuste" wire:confirm="¿Aplicar ajuste de {{ $ajustePct }}% a todos los precios{{ $ajusteRubroFiltro ? ' del rubro seleccionado' : '' }}? Esta acción no se puede deshacer."
-                    class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors">
-                Aplicar ajuste
-            </button>
         </div>
+        @error('ajustePct') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+        <div class="flex flex-wrap items-end gap-3 mt-3 pt-3 border-t border-amber-200">
+            <span class="text-xs font-semibold text-amber-800 uppercase tracking-wide self-center">Aplicar a</span>
+            <select wire:model.live="ajusteRubroFiltro"
+                    class="text-sm border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white">
+                <option value="">Todos los rubros</option>
+                @foreach($rubros as $r)
+                    <option value="{{ $r->id }}">{{ $r->descripcion }}</option>
+                @endforeach
+            </select>
+            <select wire:model.live="ajusteMarcaFiltro"
+                    class="text-sm border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white">
+                <option value="">Todas las marcas</option>
+                @foreach($marcas as $m)
+                    <option value="{{ $m->id }}">{{ $m->descripcion }}</option>
+                @endforeach
+            </select>
+            <label class="inline-flex items-center gap-2 text-xs text-amber-900 {{ trim($search) === '' ? 'opacity-50' : '' }}">
+                <input wire:model.live="ajusteSoloBusqueda" type="checkbox" @disabled(trim($search) === '') class="rounded border-amber-300 text-amber-600">
+                Solo la búsqueda{{ trim($search) !== '' ? ' "' . $search . '"' : '' }}
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-amber-900 {{ empty($seleccion) ? 'opacity-50' : '' }}">
+                <input wire:model.live="ajusteSoloSeleccion" type="checkbox" @disabled(empty($seleccion)) class="rounded border-amber-300 text-amber-600">
+                Solo los seleccionados ({{ count($seleccion) }})
+            </label>
+            @error('ajusteSoloSeleccion') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-3">
+            <button wire:click="previsualizarAjuste" wire:loading.attr="disabled" type="button"
+                    class="px-4 py-2 text-sm font-medium text-amber-800 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
+                <span wire:loading.remove wire:target="previsualizarAjuste">Vista previa</span>
+                <span wire:loading wire:target="previsualizarAjuste">Calculando…</span>
+            </button>
+            @if($ajustePreview)
+            <button wire:click="aplicarAjuste" wire:loading.attr="disabled" @disabled($ajustePreview['cantidad'] === 0)
+                    wire:confirm="¿Aplicar el ajuste a {{ $ajustePreview['cantidad'] }} precios?"
+                    class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-40">
+                Aplicar a {{ number_format($ajustePreview['cantidad'], 0, ',', '.') }} precios
+            </button>
+            @endif
+        </div>
+
+        @if($ajustePreview)
+        <div class="mt-3 bg-white border border-amber-200 rounded-lg overflow-hidden">
+            <p class="px-3 py-2 text-xs text-amber-900 bg-amber-100/60">
+                Cambian <strong>{{ number_format($ajustePreview['cantidad'], 0, ',', '.') }}</strong> precios de
+                <strong>{{ number_format($ajustePreview['articulos'], 0, ',', '.') }}</strong> artículos.
+                @if($ajustePreview['omitidos'])
+                    {{ $ajustePreview['omitidos'] }} artículos sin costo quedan afuera.
+                @endif
+                Muestra:
+            </p>
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="text-gray-500 border-b border-amber-100">
+                        <th class="px-3 py-1.5 text-left font-medium">Artículo</th>
+                        <th class="px-3 py-1.5 text-right font-medium">Antes</th>
+                        <th class="px-3 py-1.5 text-right font-medium">Después</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-amber-50">
+                    @foreach($ajustePreview['ejemplos'] as $e)
+                    <tr>
+                        <td class="px-3 py-1.5 text-gray-800"><span class="font-mono text-gray-400">{{ $e['codigo'] }}</span> {{ $e['descripcion'] }}</td>
+                        <td class="px-3 py-1.5 text-right text-gray-500">${{ number_format($e['final_antes'], 2, ',', '.') }}</td>
+                        <td class="px-3 py-1.5 text-right font-semibold text-gray-900">${{ number_format($e['final_despues'], 2, ',', '.') }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+
+        @if($historial->isNotEmpty())
+        <div class="mt-4 pt-3 border-t border-amber-200">
+            <h4 class="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-2">Historial de ajustes</h4>
+            <ul class="space-y-1.5">
+                @foreach($historial as $h)
+                <li class="flex flex-wrap items-center justify-between gap-2 text-xs bg-white border border-amber-100 rounded-md px-3 py-2">
+                    <span class="text-gray-700">
+                        <span class="text-gray-400">{{ $h->created_at->format('d/m/Y H:i') }} · {{ $h->user?->name ?? '—' }} ·</span>
+                        {{ $h->descripcion }} · {{ number_format($h->cantidad, 0, ',', '.') }} precios
+                    </span>
+                    @if($h->revertido_at)
+                        <span class="text-gray-400 italic">Deshecho el {{ $h->revertido_at->format('d/m/Y H:i') }}</span>
+                    @else
+                        <button wire:click="revertirAjuste({{ $h->id }})"
+                                wire:confirm="¿Deshacer este ajuste? Los precios vuelven al valor anterior (salvo los que se cambiaron después)."
+                                class="px-2 py-1 font-medium text-amber-800 border border-amber-300 rounded-md hover:bg-amber-100">
+                            Deshacer
+                        </button>
+                    @endif
+                </li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
     </div>
     @endif
 
@@ -230,6 +342,12 @@
                 @endforeach
             </select>
         </div>
+        @if(! empty($seleccion))
+        <p class="mt-3 text-xs text-gray-600">
+            {{ count($seleccion) }} {{ count($seleccion) === 1 ? 'artículo seleccionado' : 'artículos seleccionados' }} para el ajuste masivo.
+            <button wire:click="limpiarSeleccion" type="button" class="ml-1 text-slate-700 underline hover:no-underline">Limpiar selección</button>
+        </p>
+        @endif
     </div>
 
     {{-- Tabla --}}
@@ -237,14 +355,15 @@
         @if($modoGrilla)
         <div class="px-4 py-2 bg-slate-50 border-b border-[#DDE1E7] flex items-center gap-2 text-xs text-slate-600">
             <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Modo grilla: editá los precios directamente y presioná <strong class="mx-1">Guardar grilla</strong> para confirmar.
-            Los precios son {{ $verNetos ? 'netos (sin IVA)' : 'finales (con IVA)' }}.
+            Modo grilla: editá los precios y presioná <strong class="mx-1">Guardar grilla</strong>. Lo editado se conserva al cambiar de página;
+            solo se graba lo que cambió. Los precios son {{ $verNetos ? 'netos (sin IVA)' : 'finales (con IVA)' }}.
         </div>
         @endif
 
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-[#DDE1E7] bg-[#E9ECF0]">
+                    <th class="pl-4 py-3 w-6"></th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Código</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artículo</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Tramos</th>
@@ -255,11 +374,31 @@
             </thead>
             <tbody class="divide-y divide-[#E9ECF0]">
                 @forelse($articulos as $articulo)
+                @php
+                    $baseTramo  = $articulo->precios->first();
+                    $iva        = (float) $articulo->alicuota_iva;
+                    $finalBase  = $baseTramo ? \App\Support\Pricing::final((float) $baseTramo->precio, $iva) : null;
+                    $margenReal = $finalBase !== null ? \App\Services\Pricing\AjustePrecios::margenReal($finalBase, (float) $articulo->precio_costo, $iva) : null;
+                    $sugerido   = \App\Services\Pricing\AjustePrecios::precioSugerido((float) $articulo->precio_costo, $iva, (float) $articulo->margen);
+                @endphp
                 <tr class="hover:bg-[#E9ECF0]/50 transition-colors">
+                    <td class="pl-4 py-3 align-top">
+                        <input wire:model.live="seleccion" value="{{ $articulo->id }}" type="checkbox" title="Seleccionar para el ajuste masivo"
+                               class="mt-0.5 rounded border-[#DDE1E7] text-slate-900 focus:ring-slate-900">
+                    </td>
                     <td class="px-4 py-3 align-top font-mono text-xs text-gray-700">{{ $articulo->codigo }}</td>
                     <td class="px-4 py-3 align-top">
                         <p class="font-medium text-gray-900">{{ $articulo->descripcion }}</p>
-                        <p class="text-xs text-gray-400">{{ $articulo->rubro?->descripcion ?? '—' }} · costo ${{ number_format($articulo->precio_costo, 2, ',', '.') }}</p>
+                        <p class="text-xs text-gray-400">
+                            {{ $articulo->rubro?->descripcion ?? '—' }} · costo ${{ number_format($articulo->precio_costo, 2, ',', '.') }}
+                            @if($lista->es_default && $margenReal !== null)
+                                · margen <span class="{{ (float) $articulo->margen > 0 && $margenReal < (float) $articulo->margen - 0.5 ? 'text-red-600 font-medium' : '' }}"
+                                               title="Margen real del precio actual sobre el costo (configurado: {{ rtrim(rtrim(number_format((float) $articulo->margen, 1, ',', ''), '0'), ',') }}%)">{{ number_format($margenReal, 1, ',', '.') }}%</span>
+                                @if($sugerido !== null && (float) $articulo->margen > 0)
+                                    · sugerido ${{ number_format($sugerido, 2, ',', '.') }}
+                                @endif
+                            @endif
+                        </p>
                     </td>
                     <td class="px-4 py-3 align-top">
                         @if($articulo->precios->isEmpty())
@@ -330,7 +469,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ $modoGrilla ? 3 : 4 }}" class="px-4 py-16 text-center text-gray-400">
+                    <td colspan="{{ $modoGrilla ? 4 : 5 }}" class="px-4 py-16 text-center text-gray-400">
                         <p class="text-sm">No hay artículos para mostrar.</p>
                     </td>
                 </tr>
@@ -338,7 +477,7 @@
             </tbody>
         </table>
 
-        @if(!$modoGrilla && method_exists($articulos, 'hasPages') && $articulos->hasPages())
+        @if($articulos->hasPages())
         <div class="px-4 py-3 border-t border-[#DDE1E7]">
             {{ $articulos->links() }}
         </div>

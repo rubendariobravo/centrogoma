@@ -341,13 +341,13 @@
                         <label class="block text-xs font-medium text-gray-600 mb-1">Precio costo</label>
                         <div class="relative">
                             <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-                            <input wire:model="precio_costo" type="number" step="0.01" min="0"
+                            <input wire:model.live.debounce.400ms="precio_costo" type="number" step="0.01" min="0"
                                    class="w-full pl-5 pr-2 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                         </div>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Margen %</label>
-                        <input wire:model="margen" type="number" step="0.1" min="0"
+                        <input wire:model.live.debounce.400ms="margen" type="number" step="0.1" min="0"
                                class="w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                     </div>
                     <div>
@@ -366,6 +366,25 @@
                         </select>
                     </div>
                 </div>
+                @php
+                    $sugerido   = $this->precioSugerido;
+                    $finalBase  = isset($tiers[0]) ? ($verNetosTramos ? \App\Support\Pricing::final((float) $tiers[0]['precio'], (float) $alicuota_iva) : (float) $tiers[0]['precio']) : null;
+                    $margenReal = $finalBase ? \App\Services\Pricing\AjustePrecios::margenReal($finalBase, (float) $precio_costo, (float) $alicuota_iva) : null;
+                @endphp
+                @if($sugerido !== null)
+                <div class="mt-3 pt-3 border-t border-[#E9ECF0] flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600">
+                    <span>Precio sugerido (costo × IVA × margen): <strong class="text-gray-900">${{ number_format($sugerido, 2, ',', '.') }}</strong></span>
+                    @if($margenReal !== null)
+                    <span>Margen real del precio actual:
+                        <strong class="{{ (float) $margen > 0 && $margenReal < (float) $margen - 0.5 ? 'text-red-600' : 'text-gray-900' }}">{{ number_format($margenReal, 1, ',', '.') }}%</strong>
+                    </span>
+                    @endif
+                    <button type="button" wire:click="usarPrecioSugerido"
+                            class="px-2.5 py-1 font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200">
+                        Usar sugerido (redondeado a $100)
+                    </button>
+                </div>
+                @endif
             </div>
 
         </div>

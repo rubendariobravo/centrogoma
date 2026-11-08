@@ -23,6 +23,16 @@
         {{ session('success') }}
     </div>
     @endif
+    @if(session('margenes'))
+    <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-lg px-4 py-3">
+        <p class="font-medium">La compra subió el costo y estos artículos quedaron por debajo de su margen. Revisá sus precios en Listas de precios:</p>
+        <ul class="mt-1.5 text-xs space-y-0.5">
+            @foreach(session('margenes') as $m)
+                <li>{{ $m['descripcion'] }}: margen {{ number_format($m['margen_real'], 1, ',', '.') }}% (configurado {{ rtrim(rtrim(number_format($m['margen'], 1, ',', ''), '0'), ',') }}%)</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
 
     {{-- Filtros --}}
     <div class="bg-white rounded-xl shadow-sm p-4 mb-4">

@@ -23,6 +23,8 @@ class ListaPreciosImport implements ToCollection, SkipsEmptyRows
     public int   $actualizados = 0;
     public int   $omitidos     = 0;
     public array $errores      = [];
+    /** @var array<int> artículos con algún tramo actualizado (para sincronizar el precio base) */
+    public array $articulosActualizados = [];
 
     public function __construct(
         private int    $listaId,
@@ -69,6 +71,7 @@ class ListaPreciosImport implements ToCollection, SkipsEmptyRows
                 : Pricing::neto($precio, $iva);
 
             $tramo->update(['precio' => $precioNeto]);
+            $this->articulosActualizados[] = $tramo->articulo_id;
             $this->actualizados++;
         }
     }

@@ -6,6 +6,7 @@ use App\Models\Articulo;
 use App\Models\ListaPrecio;
 use App\Models\Marca;
 use App\Models\Rubro;
+use App\Services\Pricing\AjustePrecios;
 use App\Support\Pricing;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -151,6 +152,7 @@ class Form extends Component
             $this->tiers = $tramos->map(function ($p) {
                 $neto = (float) $p->precio;
                 return [
+                    'id'             => $p->id,
                     'cantidad_desde' => (float) $p->cantidad_desde,
                     'cantidad_hasta' => $p->cantidad_hasta !== null ? (float) $p->cantidad_hasta : null,
                     'precio'         => $this->verNetosTramos
@@ -244,7 +246,7 @@ class Form extends Component
     {
         $valor = (float) $tier['precio'];
         if ($this->verNetosTramos) {
-            return round($valor, 2);
+            return round($valor, 4);
         }
         return Pricing::neto($valor, (float) $this->alicuota_iva);
     }
@@ -290,26 +292,53 @@ class Form extends Component
         // Guardar tramos de precio SOLO de la lista por defecto.
         // Los tramos de otras listas (Mayorista, etc.) NO se tocan acá: se
         // gestionan en /listas-precios/{lista}/precios.
+        // Se actualizan en el lugar (no borrar y recrear): el id del tramo lo usan el Excel de
+        // precios, el historial de ajustes y la auditoría de ventas (tramo_aplicado_id).
         $listaDefault = $this->listaDefault;
         if ($listaDefault) {
-            $articulo->precios()
-                ->where('lista_precio_id', $listaDefault->id)
-                ->delete();
+            $existentes = $articulo->precios()->where('lista_precio_id', $listaDefault->id)->get()->keyBy('id');
+            $conservados = [];
 
             foreach ($this->tiers as $index => $tier) {
-                $articulo->precios()->create([
+                $datos = [
                     'lista_precio_id' => $listaDefault->id,
                     'cantidad_desde'  => $tier['cantidad_desde'],
                     'cantidad_hasta'  => $tier['cantidad_hasta'] ?: null,
                     'precio'          => $this->precioNetoDeTier($tier),
                     'activo'          => $tier['activo'] ?? true,
                     'orden'           => $index,
-                ]);
+                ];
+                if (($id = $tier['id'] ?? null) && $existentes->has($id)) {
+                    $existentes[$id]->update($datos);
+                    $conservados[] = $id;
+                } else {
+                    $conservados[] = $articulo->precios()->create($datos)->id;
+                }
             }
+
+            $articulo->precios()->where('lista_precio_id', $listaDefault->id)
+                ->whereNotIn('id', $conservados)->delete();
+            AjustePrecios::sincronizarPrecioBase([$articulo->id]);
         }
 
         session()->flash('success', $this->articuloId ? 'Artículo actualizado.' : 'Artículo creado.');
         $this->redirect(route('articulos'), navigate: true);
+    }
+
+    /** Precio final sugerido por costo × (1+IVA) × (1+margen), como lo calculaba el Delphi. */
+    public function getPrecioSugeridoProperty(): ?float
+    {
+        return AjustePrecios::precioSugerido((float) $this->precio_costo, (float) $this->alicuota_iva, (float) $this->margen);
+    }
+
+    /** Pone el precio sugerido (redondeado a $100, como se cargan en el negocio) en el primer tramo. */
+    public function usarPrecioSugerido(): void
+    {
+        if (($sugerido = $this->precioSugerido) === null || empty($this->tiers)) {
+            return;
+        }
+        $final = AjustePrecios::redondear($sugerido, 100);
+        $this->tiers[0]['precio'] = $this->verNetosTramos ? Pricing::neto($final, (float) $this->alicuota_iva) : $final;
     }
 
     public function render()
