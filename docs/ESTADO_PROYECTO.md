@@ -1,6 +1,6 @@
 # CentroGoma — Estado del proyecto
 
-**Última actualización:** 07/11/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 155 / 606 assertions, todos pasan
+**Última actualización:** 07/11/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 165 / 669 assertions, todos pasan
 
 Documento para retomar el trabajo en otra PC. Las reglas técnicas y la arquitectura están en `CLAUDE.md`;
 la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hecho, cómo armar el entorno y qué sigue.**
@@ -41,6 +41,7 @@ con tramos y overrides por cliente · Ventas, Recibos, Compras, Órdenes de Pago
 | Buscador de clientes | `BuscaCliente` + `<x-buscador-cliente>` en Ventas, Presupuestos, Recibos y Cheques (6.6K clientes) |
 | Legacy | `centrogoma:importar` (rubros, artículos, clientes, proveedores, plan_cuenta) y `centrogoma:importar-saldos` (saldos de CC como comprobantes de saldo inicial) — ambos repetibles |
 | Estadísticas / Dashboard | `/estadisticas` (resumen, clientes top, proveedores top) portado de avícola sin saldos iniciales, sin stock y con anticipos como sueldos · Dashboard con ventas del día/mes, a cobrar, a pagar, cheques a 7 días y mayores deudores |
+| Presupuestos | Revisados contra el Delphi (07/11/2026): duplicar (copia editable, "actualizar precios a la lista de hoy"), presupuesto sin cliente registrado, pasaje a venta con cantidades y precios pactados (el motor ya no los pisa; "Lista hoy" de referencia), totales iguales a ventas. Corregidos: editar bajaba el precio un 21% por guardado, buscador de artículos roto (`$wire`), precio de lista nunca aplicado (campos inexistentes del motor) |
 | Producción | Desplegado 26/10/2026, HTTPS, datos del Delphi al corte **28/05/2026** (ensayo: se reimporta en la salida real) |
 
 **Bugs corregidos en el camino:** caja de ventas con pago mixto (un asiento por forma de pago) · percepciones IIBB/IVA
@@ -107,7 +108,7 @@ php artisan centrogoma:importar
 php artisan centrogoma:importar-saldos --corte=2026-05-28
 php artisan db:seed --class=UsuarioTestingSeeder     # usuario de pruebas (credenciales en el seeder)
 php artisan storage:link
-php artisan test                                     # 155 tests
+php artisan test                                     # 165 tests
 ```
 
 Virtual host `centrogoma.test` en Laragon apuntando a `public/`.

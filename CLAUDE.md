@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (155 tests, 606 assertions — todos pasan)
+# Correr tests (165 tests, 669 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -382,18 +382,29 @@ Implementado en mayo 2026.
 | Ruta | Componente |
 |------|-----------|
 | `GET /presupuestos` | `Presupuestos\Index` |
-| `GET /presupuestos/create` | `Presupuestos\Form` |
+| `GET /presupuestos/create` | `Presupuestos\Form` (`?duplicar={id}` = copia editable) |
 | `GET /presupuestos/{id}/edit` | `Presupuestos\Form` |
 | `GET /presupuestos/{id}/pdf` | `PresupuestoController::pdf()` |
 
-**Estados:** `A` = Activo, `V` = Vencido (calculado por `fecha_vencimiento`), `F` = Facturado, `N` = Anulado.
+**Estados:** `A` = Activo, `V` = Vencido (calculado por `fecha_vencimiento`, vale hasta ese día inclusive), `F` = Facturado, `N` = Anulado.
 
-**Conversión a Venta:** botón "Convertir a Venta" en el Index (solo estados A/V).  
-- Redirige a `ventas/create?presupuesto_id={id}`
-- `Ventas\Form::mount()` detecta el query param y pre-carga cliente, lista e ítems
-- Al registrar la venta, el presupuesto pasa automáticamente a estado `F`
+**Precios:** en pantalla el renglón es FINAL (con IVA), el que se le cotiza al cliente y que el vendedor puede pactar;
+en `det_presupuestos.precio_unitario` se guarda NETO con 4 decimales, así al reabrir o pasar a venta vuelve el mismo
+final. Totales con `Ventas\Form::calcularTotales()` (el presupuesto y su venta dan igual al centavo).
 
-El Form usa el **PriceEngine** igual que Ventas, con las mismas reglas de pricing.
+**Sin cliente registrado** (41% de los presupuestos del Delphi): `cliente_id` es opcional y `cliente_nombre` guarda el
+nombre escrito a mano; `Presupuesto::nombre_cliente` resuelve cliente → nombre → "Consumidor final".
+
+**Duplicar** (en el Delphi "Modificar" hacía esto): botón en el Index, cualquier estado. Abre `create?duplicar={id}`
+con cabecera y renglones del original y fecha de hoy; no se graba hasta guardar. "Actualizar precios a la lista de
+hoy" recotiza los renglones. El original no se toca.
+
+**Conversión a Venta:** botón "Convertir a Venta" en el Index (estados A/V) → `ventas/create?presupuesto_id={id}`.
+- `Ventas\Form::precargarDesdePresupuesto()` carga cliente, lista, cantidades y **precios del presupuesto** como
+  `precio_manual` (el motor no los pisa ni al cambiar cantidades ni al registrar; `regla_aplicada = presupuesto`).
+- Cada renglón trae `precio_lista` (motor de hoy) solo como referencia: "Lista hoy: $X" bajo el precio, un clic lo aplica.
+- Presupuesto vencido → aviso. Sin cliente → venta a consumidor final con el nombre en la observación.
+- Todo se ajusta antes de registrar; al registrar, el presupuesto pasa a `F` con `venta_id`.
 
 ---
 
@@ -629,11 +640,12 @@ tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selecci�
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
 tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 5 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
+tests/Feature/Presupuestos/PresupuestosTest.php — 10 tests (reabrir sin perder precio, sin cliente, duplicar, pasar a venta con precio pactado y ajustes, vencido)
 tests/Feature/Estadisticas/EstadisticasTest.php — 5 tests (sin saldos iniciales, anticipos como sueldos, buscador, permiso, Dashboard)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 155 tests, 606 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 165 tests, 669 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -660,6 +672,7 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_09_29_000002_add_legacy_id_to_categorias_gasto_table` | `legacy_id` para importar `plan_cuenta` |
 | `2026_09_29_000003_add_saldo_inicial_to_ventas_and_compras` | Flag de comprobante de saldo inicial (scope `comerciales()`) |
 | `2026_10_31_000001..2` | `anticipo_empleados` + `anticipo_pagos` (líneas de pago por caja) |
+| `2026_11_07_000001_presupuestos_sin_cliente` | `presupuestos.cliente_id` opcional + `cliente_nombre` |
 | `2026_10_31_000003_precios_netos_con_4_decimales` | `articulo_precios.precio` y `cliente_precios.precio_especial` a `decimal(15,4)`; recupera el neto de 4 decimales de los tramos importados sin editar |
 
 ---

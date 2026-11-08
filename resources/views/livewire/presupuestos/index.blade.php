@@ -104,7 +104,7 @@
                             {{ $p->fecha_vencimiento?->format('d/m/Y') ?? '—' }}
                         </td>
                         <td class="px-4 py-3">
-                            <div class="font-medium text-gray-900">{{ $p->cliente?->razon_social ?? '—' }}</div>
+                            <div class="font-medium {{ $p->cliente ? 'text-gray-900' : 'text-gray-500 italic' }}">{{ $p->nombre_cliente }}</div>
                         </td>
                         <td class="px-4 py-3 text-right font-medium text-gray-900">
                             ${{ number_format($p->total, 2, ',', '.') }}
@@ -140,6 +140,13 @@
                                     </svg>
                                 </button>
                                 @endif
+                                {{-- Duplicar (cualquier estado: el original no se toca) --}}
+                                <a href="{{ route('presupuestos.create', ['duplicar' => $p->id]) }}" wire:navigate
+                                   class="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-md transition-colors" title="Duplicar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                    </svg>
+                                </a>
                                 {{-- PDF --}}
                                 <a href="{{ route('presupuestos.pdf', $p->id) }}" target="_blank"
                                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Ver PDF">

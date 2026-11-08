@@ -63,12 +63,14 @@ class Index extends Component
     {
         $presupuestos = Presupuesto::query()
             ->with(['cliente', 'user'])
-            ->when($this->search, fn ($q) => $q
+            ->when($this->search, fn ($q) => $q->where(fn ($w) => $w
                 ->whereHas('cliente', fn ($c) =>
                     $c->where('razon_social', 'like', "%{$this->search}%")
                       ->orWhere('nombre_fantasia', 'like', "%{$this->search}%")
-                )->orWhere('nro_presupuesto', 'like', "%{$this->search}%")
-            )
+                )
+                ->orWhere('cliente_nombre', 'like', "%{$this->search}%")
+                ->orWhere('nro_presupuesto', 'like', "%{$this->search}%")
+            ))
             ->when($this->filterEstado, fn ($q) => $q->where('estado', $this->filterEstado))
             ->when($this->filterCliente, fn ($q) => $q->where('cliente_id', $this->filterCliente))
             ->when($this->filterDesde, fn ($q) => $q->where('fecha', '>=', $this->filterDesde))

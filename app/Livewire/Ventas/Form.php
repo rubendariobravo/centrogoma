@@ -70,6 +70,8 @@ class Form extends Component
 
     // Presupuesto origen (pre-carga el form desde un presupuesto)
     public ?int $presupuestoOrigenId = null;
+    public ?int $presupuestoOrigenNro = null;
+    public bool $presupuestoVencido = false;
 
     public function mount(?int $venta = null): void
     {
@@ -110,14 +112,20 @@ class Form extends Component
             return;
         }
 
-        $this->presupuestoOrigenId = $p->id;
-        $this->cliente_id          = $p->cliente_id;
-        $this->listaIdForzada      = $p->lista_precio_id;
+        $this->presupuestoOrigenId  = $p->id;
+        $this->presupuestoOrigenNro = $p->nro_presupuesto;
+        $this->presupuestoVencido   = $p->estaVencido();
+        $this->cliente_id           = $p->cliente_id;
+        $this->listaIdForzada       = $p->lista_precio_id;
 
         if ($p->cliente_id) {
             $this->cargarDatosCliente($p->cliente_id);
+        } elseif ($p->cliente_nombre) {
+            $this->observacion = "Presupuesto #{$p->nro_presupuesto} — {$p->cliente_nombre}";
         }
 
+        // Precios y cantidades del presupuesto: van como precio manual para que el motor no los
+        // reemplace (ni al cambiar cantidades ni al registrar). Todo se puede ajustar después.
         $this->items = $p->detalles
             ->filter(fn ($d) => $d->articulo_id)
             ->map(fn ($d) => [
@@ -127,19 +135,47 @@ class Form extends Component
                 'tipo_venta'        => $d->articulo?->tipo_venta ?? 'CAJA',
                 'unidad_medida'     => $d->articulo?->unidad_medida ?? 'unidad',
                 'cantidad'          => (float) $d->cantidad,
-                'precio'            => (float) $d->precio_unitario,
+                'precio'            => round((float) $d->precio_unitario, 4),
                 'alicuota_iva'      => (float) $d->alicuota_iva,
                 'descuento'         => (float) $d->descuento,
                 'subtotal'          => (float) $d->subtotal,
-                'precio_manual'     => false,
+                'precio_manual'     => true,
                 'lista_precio_id'   => $p->lista_precio_id,
                 'tramo_aplicado_id' => null,
                 'regla_aplicada'    => 'presupuesto',
                 'precio_motor'      => null,
+                'precio_lista'      => null,
             ])->values()->toArray();
 
         if (empty($this->items)) {
             $this->addItem();
+            return;
+        }
+
+        // Precio de lista de hoy, solo como referencia en pantalla ("Lista hoy: $X — usar").
+        foreach ($this->items as $i => $item) {
+            $this->items[$i]['precio_lista'] = $this->precioDeLista($i);
+        }
+    }
+
+    /** Neto que daría el motor hoy para la fila, sin aplicarlo. Null si no se puede cotizar. */
+    private function precioDeLista(int $index): ?float
+    {
+        $item    = $this->items[$index];
+        $rubroId = (int) ($item['rubro_id'] ?? 0);
+        $unidad  = $item['unidad_medida'] ?? '';
+
+        try {
+            return app(PriceEngine::class)->cotizar(new CotizacionRequest(
+                articuloId: (int) $item['articulo_id'],
+                cantidad: (float) $item['cantidad'],
+                clienteId: $this->cliente_id,
+                formaPago: 'efectivo',
+                cantidadTramo: ($rubroId && $unidad) ? $this->calcularCantidadGrupo($rubroId, $unidad) : null,
+                forzarListaId: $this->listaIdForzada,
+            ))->precioUnitario;
+        } catch (\Throwable) {
+            return null;
         }
     }
 
@@ -568,6 +604,7 @@ class Form extends Component
         }
         $this->items[$index]['precio'] = $precio;
         $this->items[$index]['precio_manual'] = true;
+        $this->items[$index]['regla_aplicada'] = 'manual_override';
         $this->items[$index]['subtotal'] = round(
             (float) $this->items[$index]['cantidad'] * $precio,
             2
@@ -687,7 +724,10 @@ class Form extends Component
             // Guardamos metadata para auditoria en det_venta.
             $this->items[$i]['lista_precio_id']   = $cot->listaPrecioId;
             $this->items[$i]['tramo_aplicado_id'] = $cot->tramoAplicadoId;
-            $this->items[$i]['regla_aplicada']    = $manual ? 'manual_override' : $cot->reglaAplicada;
+            // Un renglón que vino de un presupuesto y no se tocó conserva esa marca.
+            $this->items[$i]['regla_aplicada']    = $manual
+                ? (($item['regla_aplicada'] ?? null) === 'presupuesto' ? 'presupuesto' : 'manual_override')
+                : $cot->reglaAplicada;
             $this->items[$i]['precio_motor']      = $cot->precioUnitario;
         }
 

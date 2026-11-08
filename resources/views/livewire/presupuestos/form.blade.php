@@ -16,7 +16,7 @@
                 <span class="text-gray-900">{{ $presupuestoId ? 'Presupuesto #'.str_pad($presupuestoId, 6, '0', STR_PAD_LEFT) : 'Nuevo presupuesto' }}</span>
             </div>
             <h1 class="text-xl font-semibold text-gray-900">
-                {{ $presupuestoId ? 'Editar presupuesto' : 'Nuevo presupuesto' }}
+                {{ $presupuestoId ? 'Editar presupuesto' : ($duplicadoDe ? 'Nuevo presupuesto (copia del #'.str_pad($duplicadoDe, 6, '0', STR_PAD_LEFT).')' : 'Nuevo presupuesto') }}
             </h1>
         </div>
         <div class="flex items-center gap-3">
@@ -40,14 +40,29 @@
     </div>
     @endif
 
+    @if($duplicadoDe)
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 bg-sky-50 border border-sky-200 text-sky-800 text-sm rounded-lg px-4 py-3">
+        <span>Copia del <strong>Presupuesto #{{ str_pad($duplicadoDe, 6, '0', STR_PAD_LEFT) }}</strong> con sus precios. Ajustá lo que haga falta: se graba como presupuesto nuevo al guardar.</span>
+        <button type="button" wire:click="actualizarPreciosALista" wire:loading.attr="disabled"
+                class="px-3 py-1.5 text-xs font-medium text-sky-800 bg-white border border-sky-300 rounded-md hover:bg-sky-100">
+            Actualizar precios a la lista de hoy
+        </button>
+    </div>
+    @endif
+
     <div class="space-y-4">
 
         {{-- Encabezado del presupuesto --}}
         <div class="bg-white rounded-xl shadow-sm p-5">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="sm:col-span-2">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Cliente <span class="text-red-500">*</span></label>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Cliente</label>
                     <x-buscador-cliente vacio="Buscar cliente por nombre o CUIT…" error="cliente_id" />
+                    @if(! $cliente_id)
+                    <input wire:model="cliente_nombre" type="text" maxlength="150"
+                           placeholder="Sin cliente registrado: nombre para el presupuesto (opcional)"
+                           class="mt-2 w-full px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
+                    @endif
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
@@ -277,7 +292,7 @@ function articuloSearch(rowIndex, initialSearch) {
 
         async buscar() {
             if (this.search.length < 2) { this.resultados = []; this.open = false; return; }
-            const res = await $wire.buscarArticulos(this.search);
+            const res = await this.$wire.buscarArticulos(this.search);
             this.resultados = res || [];
             this.open = this.resultados.length > 0;
             this.highlight = 0;
@@ -293,7 +308,7 @@ function articuloSearch(rowIndex, initialSearch) {
             this.search = art.codigo + ' — ' + art.descripcion;
             this.open = false;
             this.resultados = [];
-            await $wire.seleccionarArticulo(this.rowIndex, art.id);
+            await this.$wire.seleccionarArticulo(this.rowIndex, art.id);
             this.$nextTick(() => {
                 const el = document.querySelector(`[data-row="${this.rowIndex}"][data-field="cantidad"]`);
                 if (el) { el.focus(); if (el.select) el.select(); }

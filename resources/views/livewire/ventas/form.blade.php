@@ -84,8 +84,16 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
         </svg>
-        <span>Pre-cargado desde <strong>Presupuesto #{{ $presupuestoOrigenId }}</strong>. Al registrar la venta, el presupuesto quedará marcado como <em>Facturado</em>.</span>
+        <span>Pre-cargado desde <strong>Presupuesto #{{ str_pad($presupuestoOrigenNro ?? $presupuestoOrigenId, 6, '0', STR_PAD_LEFT) }}</strong> con sus cantidades y precios; se pueden ajustar. Al registrar la venta, el presupuesto quedará marcado como <em>Facturado</em>.</span>
     </div>
+    @if($presupuestoVencido)
+    <div class="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span>El presupuesto está <strong>vencido</strong>: revisá los precios. Debajo de cada precio figura el de la lista de hoy; un clic lo aplica.</span>
+    </div>
+    @endif
     @endif
 
     {{-- Formulario --}}
@@ -275,7 +283,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         <button type="button"
                                                 x-show="item.precio_manual"
                                                 x-on:click="restaurarPrecio(index)"
-                                                title="Restaurar precio del motor"
+                                                :title="item.regla_aplicada === 'presupuesto' ? 'Usar el precio de lista de hoy' : 'Restaurar precio del motor'"
                                                 class="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-500 hover:text-amber-700">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -283,6 +291,16 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         </button>
                                         @endif
                                     </div>
+                                    @if(! $readOnly)
+                                    {{-- Renglón de un presupuesto con precio distinto al de lista de hoy --}}
+                                    <p x-show="item.regla_aplicada === 'presupuesto' && item.precio_lista != null && Math.abs(item.precio_lista - item.precio) > 0.00005"
+                                       class="mt-0.5 text-right text-[11px] text-gray-400">
+                                        Lista hoy:
+                                        <button type="button" x-on:click="restaurarPrecio(index)" title="Usar el precio de lista de hoy"
+                                                class="text-sky-600 hover:underline"
+                                                x-text="'$' + formatNum(verNetos ? item.precio_lista : Math.round(item.precio_lista * (1 + item.alicuota_iva / 100) * 100) / 100)"></button>
+                                    </p>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-center text-xs text-gray-500">
                                     <span x-text="item.alicuota_iva + '%'"></span>

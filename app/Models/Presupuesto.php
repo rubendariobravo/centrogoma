@@ -11,7 +11,7 @@ class Presupuesto extends Model implements Auditable
     use SoftDeletes, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
-        'cliente_id', 'user_id', 'lista_precio_id', 'venta_id',
+        'cliente_id', 'cliente_nombre', 'user_id', 'lista_precio_id', 'venta_id',
         'nro_presupuesto', 'fecha', 'fecha_vencimiento', 'dias_validez',
         'neto', 'neto_21', 'neto_10_5', 'monto_iva21', 'monto_iva10_5',
         'descuento', 'total', 'estado',
@@ -55,6 +55,12 @@ class Presupuesto extends Model implements Auditable
         return $this->hasMany(DetPresupuesto::class);
     }
 
+    /** Cliente registrado, o el nombre escrito a mano, o mostrador. */
+    public function getNombreClienteAttribute(): string
+    {
+        return $this->cliente?->razon_social ?: ($this->cliente_nombre ?: 'Consumidor final');
+    }
+
     public function estaActivo(): bool
     {
         return $this->estado === 'A';
@@ -63,7 +69,8 @@ class Presupuesto extends Model implements Auditable
     public function estaVencido(): bool
     {
         return $this->estado === 'V' ||
-            ($this->estado === 'A' && $this->fecha_vencimiento && $this->fecha_vencimiento->isPast());
+            // Vale hasta el último día inclusive.
+            ($this->estado === 'A' && $this->fecha_vencimiento && $this->fecha_vencimiento->copy()->endOfDay()->isPast());
     }
 
     public function getLabelEstadoAttribute(): string

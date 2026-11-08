@@ -155,7 +155,7 @@
         <table class="info-table">
             <tr>
                 <td style="width:50%">
-                    <strong>{{ $presupuesto->cliente?->razon_social ?? '—' }}</strong>
+                    <strong>{{ $presupuesto->nombre_cliente }}</strong>
                     @if($presupuesto->cliente?->nombre_fantasia && $presupuesto->cliente->nombre_fantasia !== $presupuesto->cliente->razon_social)
                         <br>{{ $presupuesto->cliente->nombre_fantasia }}
                     @endif

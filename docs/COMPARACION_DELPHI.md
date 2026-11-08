@@ -53,10 +53,13 @@ brecha.
 | Función del Delphi | Uso | Sistema nuevo | Estado |
 |---|---|---|---|
 | Alta/edición de presupuesto, validez, condición de pago, plazo de entrega | 1.779/año | `Presupuestos\Form` (mismos campos) | ✅ |
+| Precio pactado por renglón (92% distinto de la lista actual) | diario | Precio final editable por renglón, se conserva al reabrir | ✅ (corregido 07/11) |
+| Presupuesto sin cliente registrado | 41% | Cliente opcional + nombre a mano | ✅ (07/11) |
+| "Modificar" = duplicar y ajustar | diario | Botón "Duplicar" (copia editable, cualquier estado) + "actualizar precios a la lista de hoy" | ✅ (07/11) |
 | Imprimir / PDF | diario | `PresupuestoController::pdf()` | ✅ |
 | "Incluye IVA" / "Sin leyenda" (cómo se muestran los precios) | 276 sin IVA | No existe la opción | ❌ |
 | **Expresar en USD** | 51/año (la marca del Delphi está invertida: verificar) | No existe moneda | ❌ va con el tema de artículos en dólares |
-| Convertir en venta | 0 | Existe (`ventas/create?presupuesto_id=`) | ✅ (mejora) |
+| Convertir en venta | 0 en el Delphi; requisito del negocio | Carga cantidades y precios del presupuesto (sin repreciar), ajustable, aviso si venció | ✅ (07/11) |
 
 ### Artículos y precios
 
