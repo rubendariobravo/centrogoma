@@ -367,7 +367,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="abrirCaja"
+                <button data-enter-guardar wire:click="abrirCaja"
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors">
                     Abrir caja
                 </button>
@@ -419,7 +419,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="crearCajaGeneral"
+                <button data-enter-guardar wire:click="crearCajaGeneral"
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors">
                     Crear caja
                 </button>
@@ -485,7 +485,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="transferir"
+                <button data-enter-guardar wire:click="transferir"
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors">
                     Transferir
                 </button>
@@ -594,7 +594,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="cerrarCaja"
+                <button data-enter-guardar wire:click="cerrarCaja"
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
                     Confirmar cierre
                 </button>
@@ -703,7 +703,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="registrarAjuste"
+                <button data-enter-guardar wire:click="registrarAjuste"
                         class="{{ $ajusteTipo === 'ingreso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700' }} flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors">
                     Registrar {{ $ajusteTipo === 'ingreso' ? 'ingreso' : 'egreso' }}
                 </button>

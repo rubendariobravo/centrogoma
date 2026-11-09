@@ -3,3 +3,9 @@
 @tailwind utilities;
 
 [x-cloak] { display: none !important; }
+
+/* Enter en lugar de Tab: el botón de guardar que recibe el foco al terminar el formulario se tiene que notar. */
+[data-enter-guardar]:focus-visible {
+    outline: 3px solid #34d399;
+    outline-offset: 2px;
+}

@@ -12,7 +12,7 @@
         <div class="flex items-center gap-3">
             <a href="{{ route('listas-precios') }}" wire:navigate
                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-[#DDE1E7] rounded-lg hover:bg-[#E9ECF0] transition-colors">Cancelar</a>
-            <button wire:click="save"
+            <button data-enter-guardar wire:click="save"
                     class="px-5 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors">Guardar</button>
         </div>
     </div>

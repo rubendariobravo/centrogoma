@@ -388,7 +388,7 @@
                               class="w-full text-sm border border-[#DDE1E7] rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none resize-none"></textarea>
                 </div>
 
-                <button type="button"
+                <button data-enter-guardar type="button"
                         @click="
                             const detalles = getDetalles();
                             if (detalles.length === 0) { alert('Seleccione al menos una factura y asigne un monto.'); return; }

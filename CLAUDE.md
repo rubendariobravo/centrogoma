@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (192 tests, 839 assertions — todos pasan)
+# Correr tests (195 tests, 851 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -618,6 +618,26 @@ Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 |----------|-------|--------|
 | `/ventas` (index) | **F2** | Nueva venta |
 | `/ventas/create` | **F10** | Registrar venta |
+| `/presupuestos/create` | **F10** | Guardar presupuesto |
+| Todos los formularios | **Enter** / **Shift+Enter** | Campo siguiente / anterior (en lugar de Tab) |
+
+### Enter en lugar de Tab (`resources/js/enter-navegacion.js`)
+
+Como frango-saas y el Delphi. Un manejador global en `document`:
+- Enter en un input o select → siguiente campo del mismo modal (`.fixed`, `[role=dialog]`), `<form>` o página.
+  Casillas y textarea no son destino (el Enter quedaría atrapado escribiendo saltos de línea).
+- Al pasar el último campo → foco en el botón marcado con **`data-enter-guardar`**; otro Enter lo aprieta. En un
+  `<form>` sin ese botón (login), lo envía. **Todo botón de guardar de un formulario o modal nuevo lleva el atributo.**
+- No toca campos que manejan su propio Enter (`x-on:keydown.enter`, `@keydown.enter`, `wire:keydown.enter` o
+  `preventDefault`). Desde Alpine se sigue de largo con `window.enterSiguiente(el)` / `window.enterGuardar(el)`.
+- `data-enter-nativo` lo desactiva en un contenedor; `data-enter-saltar` saltea un campo.
+
+**Ventas** (portado de frango-saas): artículo → cantidad → precio → descuento → renglón nuevo (solo si el actual
+tiene artículo); Enter en la fila vacía salta a cobrar (quitando las filas vacías del medio); en el monto: vacío y
+falta saldo → lo completa; cargado y falta → otro pago; cubierto → foco en "Registrar venta" (Esc vuelve), nunca
+registra en el mismo Enter. Tarjeta → marca → monto; cheque → sus datos → monto. `guardando` evita el doble registro.
+El servidor descarta los renglones sin artículo antes de validar (Ventas y Presupuestos). Un renglón ya cargado no
+abre la lista de artículos al recibir el foco: un Enter de paso lo volvería a elegir y pisaría el precio.
 
 ---
 
@@ -647,15 +667,15 @@ tests/Feature/Legacy/ImportarSaldosLegacyTest.php — 7 tests (saldo, a favor, d
 tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selección y hooks por pantalla)
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
-tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 5 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
-tests/Feature/Presupuestos/PresupuestosTest.php — 12 tests (reabrir sin perder precio, sin cliente, duplicar, pasar a venta con precio pactado y ajustes, vencido)
+tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 7 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
+tests/Feature/Presupuestos/PresupuestosTest.php — 13 tests (reabrir sin perder precio, sin cliente, duplicar, pasar a venta con precio pactado y ajustes, vencido)
 tests/Feature/Estadisticas/EstadisticasTest.php — 5 tests (sin saldos iniciales, anticipos como sueldos, buscador, permiso, Dashboard)
 tests/Feature/Ventas/FormasPagoTarjetaTest.php  — 6 tests (marca de tarjeta en pago/recibo/caja, Mercado Pago, OC, cobrado por marca)
 tests/Feature/CuentaCorriente/ResumenCuentaTest.php — 6 tests (saldo corrido en orden de fecha, pendientes, saldos, PDF/Excel)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 192 tests, 839 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 195 tests, 851 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 

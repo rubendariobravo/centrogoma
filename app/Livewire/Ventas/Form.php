@@ -635,7 +635,12 @@ class Form extends Component
         }
 
 
-        $this->items = $payload['items'] ?? [];
+        // Los renglones sin artículo se descartan antes de validar: la grilla deja una fila en blanco
+        // al final (la que el Enter usa para saltar a cobrar) y `items.*.articulo_id` es requerido.
+        $this->items = collect($payload['items'] ?? [])
+            ->filter(fn ($i) => ! empty($i['articulo_id']))
+            ->values()
+            ->all();
         // Percepciones con los datos del cliente en la BD, no con los que manda el navegador.
         $this->clienteData = $this->cliente_id
             ? $this->datosFiscalesCliente($this->cliente_id)
@@ -660,6 +665,8 @@ class Form extends Component
             'items.*.cantidad'    => 'required|numeric|min:0.001',
             'items.*.precio'      => 'required|numeric|min:0',
         ], [
+            'items.required'               => 'Cargá al menos un artículo.',
+            'items.min'                    => 'Cargá al menos un artículo.',
             'items.*.articulo_id.required' => 'Seleccione un artículo en cada línea.',
             'items.*.cantidad.min'         => 'La cantidad debe ser mayor a 0.',
         ]);

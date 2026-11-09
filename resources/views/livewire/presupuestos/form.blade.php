@@ -150,7 +150,7 @@
                         <tr class="border-b border-gray-50">
                             <td class="px-3 py-2 text-xs text-gray-400 text-center">{{ $index + 1 }}</td>
                             <td class="px-3 py-2">
-                                <div x-data="articuloSearch({{ $index }}, @js($item['_search'] ?? ''))"
+                                <div x-data="articuloSearch({{ $index }}, @js($item['_search'] ?? ''), {{ empty($item['articulo_id']) ? 'false' : 'true' }})"
                                      x-on:click.outside="open = false">
                                     <input type="text"
                                            data-row="{{ $index }}"
@@ -202,6 +202,7 @@
                                 <input wire:model.live="items.{{ $index }}.descuento"
                                        data-row="{{ $index }}"
                                        data-field="descuento"
+                                       x-on:keydown.enter.prevent="enterEnDescuentoPresupuesto($el, {{ $index }}, {{ count($items) }}, {{ empty($item['articulo_id']) ? 'false' : 'true' }}, $wire)"
                                        type="number" min="0" max="100" step="0.01"
                                        class="w-full text-center px-2 py-1.5 text-sm border border-[#DDE1E7] rounded-md focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
                             </td>
@@ -280,8 +281,8 @@
                     </div>
                 </div>
 
-                <button wire:click="save" wire:loading.attr="disabled"
-                        class="mt-5 w-full px-4 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                <button wire:click="save" wire:loading.attr="disabled" data-enter-guardar
+                        class="mt-5 w-full px-4 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:ring-offset-2">
                     <span wire:loading.remove>Guardar presupuesto</span>
                     <span wire:loading>Guardando...</span>
                 </button>
@@ -292,16 +293,34 @@
 </div>
 
 <script>
-function articuloSearch(rowIndex, initialSearch) {
+/**
+ * Enter sobre el descuento (cierra el renglón): siguiente renglón; en el último, uno nuevo si este
+ * tiene artículo, y si está vacío, al botón Guardar.
+ */
+function enterEnDescuentoPresupuesto(el, index, cantidad, tieneArticulo, $wire) {
+    const articulo = (i) => document.querySelector(`[data-row="${i}"][data-field="articulo"]`);
+    if (index < cantidad - 1) {
+        articulo(index + 1)?.focus();
+    } else if (tieneArticulo) {
+        $wire.addItem().then(() => setTimeout(() => articulo(index + 1)?.focus(), 50));
+    } else {
+        window.enterGuardar?.(el);
+    }
+}
+
+function articuloSearch(rowIndex, initialSearch, tieneArticulo = false) {
     return {
         rowIndex: rowIndex,
+        tieneArticulo: tieneArticulo,
         search: initialSearch || '',
         resultados: [],
         open: false,
         highlight: 0,
 
+        // Un renglón ya cargado no abre la lista al entrar: un Enter de paso lo volvería a elegir
+        // y pisaría el precio pactado. Se abre al tipear.
         onFocus() {
-            if (this.search.length >= 2) this.buscar();
+            if (! this.tieneArticulo && this.search.length >= 2) this.buscar();
         },
 
         async buscar() {
@@ -312,9 +331,17 @@ function articuloSearch(rowIndex, initialSearch) {
             this.highlight = 0;
         },
 
+        // Enter: elige el resaltado; en un renglón cargado pasa a la cantidad; con la fila en blanco,
+        // se terminó de cargar y va al botón Guardar.
         seleccionarHighlight() {
             if (this.open && this.resultados.length > 0) {
                 this.seleccionar(this.resultados[this.highlight]);
+            } else if (this.tieneArticulo) {
+                this.open = false;
+                const el = document.querySelector(`[data-row="${this.rowIndex}"][data-field="cantidad"]`);
+                if (el) { el.focus(); el.select?.(); }
+            } else if (this.search.trim() === '') {
+                window.enterGuardar?.(this.$el);
             }
         },
 
@@ -322,6 +349,7 @@ function articuloSearch(rowIndex, initialSearch) {
             this.search = art.codigo + ' — ' + art.descripcion;
             this.open = false;
             this.resultados = [];
+            this.tieneArticulo = true;
             await this.$wire.seleccionarArticulo(this.rowIndex, art.id);
             this.$nextTick(() => {
                 const el = document.querySelector(`[data-row="${this.rowIndex}"][data-field="cantidad"]`);

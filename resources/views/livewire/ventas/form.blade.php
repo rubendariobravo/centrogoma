@@ -220,17 +220,9 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                                :data-row="index"
                                                data-field="articulo"
                                                x-model="item._search"
-                                               x-on:focus="openDropdown(index, $el)"
+                                               x-on:focus="if (! item.articulo_id) openDropdown(index, $el)"
                                                x-on:input="openDropdown(index, $el)"
-                                               x-on:keydown.enter.prevent="
-                                                   const _f = filteredArticulos(item);
-                                                   if (item._open && _f.length > 0) {
-                                                       seleccionarCombo(index, _f[item._highlight]);
-                                                   } else if (item.articulo_id) {
-                                                       item._open = false;
-                                                       focusField(index, 'cantidad');
-                                                   }
-                                               "
+                                               x-on:keydown.enter.prevent="enterEnArticulo(index, item)"
                                                x-on:keydown.arrow-down.prevent="item._highlight = Math.min(item._highlight + 1, filteredArticulos(item).length - 1)"
                                                x-on:keydown.arrow-up.prevent="item._highlight = Math.max(item._highlight - 1, 0)"
                                                x-on:keydown.escape="item._open = false"
@@ -308,13 +300,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                 <td class="px-3 py-2">
                                     <input x-model.number="item.descuento"
                                            x-on:input="recalcularItem(index)"
-                                           x-on:keydown.enter.prevent="
-                                               if (index === items.length - 1) {
-                                                   addItemAndFocus();
-                                               } else {
-                                                   focusField(index + 1, 'articulo');
-                                               }
-                                           "
+                                           x-on:keydown.enter.prevent="enterEnDescuento(index, item)"
                                            :data-row="index"
                                            data-field="descuento"
                                            type="number" min="0" max="100" step="0.01"
@@ -350,6 +336,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                     </svg>
                     Agregar ítem
                 </button>
+                @error('items') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             @endif
         </div>
@@ -371,7 +358,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                             <div class="grid grid-cols-12 gap-2 items-center">
                                 <select x-model="pago.forma_pago"
                                         x-on:change="initCheque(pago)"
-                                        x-on:keydown.enter.prevent="focusPagoField(index, 'monto')"
+                                        x-on:keydown.enter.prevent="focusPagoField(index, pago.forma_pago === 'tarjeta' ? 'tarjeta' : 'monto')"
                                         :data-pago-row="index"
                                         data-pago-field="forma_pago"
                                         class="col-span-6 px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
@@ -384,13 +371,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                     <input type="number" step="0.01" min="0"
                                            x-model="pago.monto"
                                            x-on:input="pago._autoMonto = false"
-                                           x-on:keydown.enter.prevent="
-                                               if (index === pagos.length - 1) {
-                                                   addPagoAndFocus();
-                                               } else {
-                                                   focusPagoField(index + 1, 'forma_pago');
-                                               }
-                                           "
+                                           x-on:keydown.enter.prevent="enterEnMonto(index)"
                                            :data-pago-row="index"
                                            data-pago-field="monto"
                                            class="w-full pl-7 pr-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
@@ -405,7 +386,9 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                             <template x-if="pago.forma_pago === 'tarjeta'">
                                 <div class="mt-1 grid grid-cols-12 gap-2">
                                     <select x-model.number="pago.tarjeta_id"
+                                            :data-pago-row="index"
                                             data-pago-field="tarjeta"
+                                            x-on:keydown.enter.prevent="focusPagoField(index, 'monto')"
                                             :class="pago.tarjeta_id ? 'border-[#DDE1E7]' : 'border-amber-400 bg-amber-50'"
                                             class="col-span-6 px-3 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-slate-900 outline-none bg-white">
                                         <option value="">Tarjeta…</option>
@@ -423,6 +406,8 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-0.5">Banco *</label>
                                             <select x-model.number="pago.cheque.banco_id"
+                                                    :data-pago-row="index"
+                                                    data-pago-field="cheque_banco"
                                                     class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
                                                 <option value="">Seleccionar...</option>
                                                 @foreach($bancos as $banco)
@@ -462,6 +447,7 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-0.5">Fecha cobro *</label>
                                             <input type="date" x-model="pago.cheque.fecha_pago"
+                                                   x-on:keydown.enter.prevent="enterEnMonto(index, true)"
                                                    class="w-full px-2 py-1.5 text-xs border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 outline-none">
                                         </div>
                                         <div class="col-span-2">
@@ -601,12 +587,18 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
 
                 @if(! $readOnly)
                 <button
+                    x-ref="btnRegistrar"
+                    data-enter-guardar
                     x-on:click="guardar($wire)"
-                    :disabled="{{ $sinCaja ? 'true' : 'false' }}"
-                    title="Registrar venta (F10)"
-                    class="mt-5 w-full px-4 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    Registrar venta <span class="opacity-60 text-xs font-normal">F10</span>
+                    :disabled="{{ $sinCaja ? 'true' : 'false' }} || guardando"
+                    title="Registrar venta (F10 o Enter)"
+                    class="mt-5 w-full px-4 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:ring-offset-2">
+                    <span x-text="guardando ? 'Registrando…' : 'Registrar venta'">Registrar venta</span>
+                    <span class="opacity-60 text-xs font-normal" x-show="!guardando">F10</span>
                 </button>
+                <p x-show="listoParaRegistrar" x-cloak class="mt-2 text-center text-xs text-emerald-700">
+                    Enter para registrar · Esc para volver a los pagos
+                </p>
                 @endif
             </div>
         </div>
@@ -635,6 +627,8 @@ function ventaForm(config) {
         descuentoGeneral: config.descuentoGeneral,
         articulosData: config.articulosData || [],
         pagos: [{ forma_pago: 'efectivo', tarjeta_id: '', monto: '', _autoMonto: true, cheque: null }],
+        guardando: false,            // anti doble registro (Enter sostenido, doble clic)
+        listoParaRegistrar: false,   // foco en "Registrar venta" después del último pago
         wire: null,
 
         // Toggle de visualizacion de precios: false = ver finales (con IVA),
@@ -707,6 +701,107 @@ function ventaForm(config) {
                 const el = document.querySelector(`[data-row="${rowIndex}"][data-field="${field}"]`);
                 if (el) { el.focus(); if (el.select) el.select(); }
             });
+        },
+
+        /**
+         * Enter sobre el buscador de artículos (como frango-saas). Con la fila en blanco no carga el
+         * primer artículo del catálogo: es la señal de que se terminó de cargar y salta a cobrar.
+         */
+        enterEnArticulo(index, item) {
+            const buscado = (item._search || '').trim();
+            if (buscado === '' && ! item.articulo_id) {
+                item._open = false;
+                this.irAPagos();
+                return;
+            }
+            const encontrados = this.filteredArticulos(item);
+            if (item._open && encontrados.length > 0) {
+                this.seleccionarCombo(index, encontrados[item._highlight]);
+                return;
+            }
+            if (item.articulo_id) {
+                item._open = false;
+                this.focusField(index, 'cantidad');
+            }
+        },
+
+        /** Enter sobre el descuento: siguiente renglón; en el último, uno nuevo solo si este tiene artículo. */
+        enterEnDescuento(index, item) {
+            if (index !== this.items.length - 1) {
+                this.focusField(index + 1, 'articulo');
+                return;
+            }
+            if (item.articulo_id) {
+                this.addItemAndFocus();
+                return;
+            }
+            this.irAPagos();
+        },
+
+        /** Salta a cobrar, quitando antes los renglones en blanco que hayan quedado en el medio. */
+        async irAPagos() {
+            await this.limpiarFilasVacias();
+            this.focusPagoField(0, 'monto');
+        },
+
+        /** Quita los renglones sin artículo, dejando el último para seguir cargando. */
+        async limpiarFilasVacias() {
+            const vacias = [];
+            this.items.forEach((item, i) => { if (! item.articulo_id) vacias.push(i); });
+            const aQuitar = vacias.slice(0, -1);
+            if (aQuitar.length === 0) return;
+            for (let k = aQuitar.length - 1; k >= 0; k--) {
+                await this.$wire.removeItem(aQuitar[k]);
+            }
+            this.syncItems();
+        },
+
+        /**
+         * Enter sobre el monto de un pago (como frango-saas), según lo que falta cobrar:
+         *   cheque sin datos            → a los datos del cheque (al terminarlos vuelve acá)
+         *   no es el último renglón     → al siguiente
+         *   vacío y falta saldo         → lo completa con el saldo y se queda (que se vea el importe)
+         *   cargado y todavía falta     → agrega otro pago (pago mixto)
+         *   cubierto                    → foco en "Registrar venta"; otro Enter registra
+         */
+        enterEnMonto(index, desdeCheque = false) {
+            const pago = this.pagos[index];
+
+            if (! desdeCheque && pago.forma_pago === 'cheque') {
+                this.focusPagoField(index, 'cheque_banco');
+                return;
+            }
+            if (index !== this.pagos.length - 1) {
+                this.focusPagoField(index + 1, 'forma_pago');
+                return;
+            }
+
+            const vacio = pago.monto === '' || pago.monto === null || parseFloat(pago.monto) === 0;
+            if (vacio && this.saldoPagos > 0) {
+                pago.monto = this.saldoPagos;
+                pago._autoMonto = false;
+                this.focusPagoField(index, 'monto');
+                return;
+            }
+            if (this.saldoPagos > 0) {
+                this.addPagoAndFocus();
+                return;
+            }
+
+            this.irARegistrar();
+        },
+
+        /** Total cubierto: deja el foco en "Registrar venta". No registra en el mismo Enter. */
+        irARegistrar() {
+            const btn = this.$refs.btnRegistrar;
+            if (! btn || btn.disabled) return;
+            btn.focus();
+            btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            this.listoParaRegistrar = true;
+            btn.addEventListener('blur', () => { this.listoParaRegistrar = false; }, { once: true });
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { e.preventDefault(); this.focusPagoField(this.pagos.length - 1, 'monto'); }
+            }, { once: true });
         },
 
         focusPagoField(rowIndex, field) {
@@ -946,6 +1041,8 @@ function ventaForm(config) {
         },
 
         guardar($wire) {
+            // Enter sostenido sobre el botón o doble clic: una sola venta.
+            if (this.guardando) return;
             const plainItems = JSON.parse(JSON.stringify(this.items)).map(item => {
                 delete item._search;
                 delete item._open;
@@ -975,7 +1072,9 @@ function ventaForm(config) {
                 total:       this.total,
             };
 
-            $wire.registrarVenta(payload);
+            this.guardando = true;
+            this.listoParaRegistrar = false;
+            Promise.resolve($wire.registrarVenta(payload)).finally(() => { this.guardando = false; });
         },
     };
 }

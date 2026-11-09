@@ -160,7 +160,7 @@
             </div>
             <div class="flex justify-end gap-2 px-5 py-4 border-t border-[#DDE1E7]">
                 <button wire:click="resetForm" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                <button wire:click="save" class="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-700">
+                <button data-enter-guardar wire:click="save" class="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-700">
                     {{ $remitoId ? 'Actualizar' : 'Guardar' }}
                 </button>
             </div>

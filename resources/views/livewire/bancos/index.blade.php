@@ -123,7 +123,7 @@
             <div class="flex gap-3 mt-6">
                 <button wire:click="resetForm"
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancelar</button>
-                <button wire:click="save"
+                <button data-enter-guardar wire:click="save"
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors">Guardar</button>
             </div>
         </div>

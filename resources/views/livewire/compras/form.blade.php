@@ -324,7 +324,7 @@ window._initialCompraItems = {{ Js::from($items ?: [['articulo_id'=>null,'descri
                 </div>
 
                 @if(! $readOnly)
-                <button type="button" x-on:click="guardar($wire)"
+                <button data-enter-guardar type="button" x-on:click="guardar($wire)"
                         class="mt-5 w-full px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors">
                     Registrar compra
                 </button>

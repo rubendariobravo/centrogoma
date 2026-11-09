@@ -152,4 +152,33 @@ class RegistrarVentaTotalesTest extends TestCase
         $this->assertEquals(0, MovimientoCaja::count());
         $this->assertEquals(10, (float) $this->articulo->fresh()->stock);
     }
+
+    public function test_el_renglon_en_blanco_del_final_no_impide_registrar(): void
+    {
+        // Con Enter la grilla siempre deja una fila vacía al final: no se valida ni se graba.
+        $lw = Livewire::test(VentaForm::class)->call('seleccionarArticulo', 0, $this->articulo->id, 1);
+        $items = $lw->get('items');
+        $items[] = ['articulo_id' => null, 'cantidad' => 1, 'precio' => 0, 'alicuota_iva' => 21, 'descuento' => 0];
+
+        $lw->call('registrarVenta', [
+            'items' => $items, 'clienteData' => $lw->get('clienteData'),
+            'pagos' => [['forma_pago' => 'efectivo', 'monto' => 15000]], 'total' => 15000,
+        ])->assertHasNoErrors();
+
+        $this->assertSame(1, DetVenta::count());
+
+        // Sin ningún artículo, el error se ve.
+        Livewire::test(VentaForm::class)->call('registrarVenta', [
+            'items' => [['articulo_id' => null, 'cantidad' => 1, 'precio' => 0, 'alicuota_iva' => 21, 'descuento' => 0]],
+            'clienteData' => [], 'pagos' => [['forma_pago' => 'efectivo', 'monto' => 1]], 'total' => 1,
+        ])->assertHasErrors('items')->assertSee('Cargá al menos un artículo.');
+    }
+
+    public function test_el_formulario_marca_el_boton_de_registrar_para_el_enter(): void
+    {
+        Livewire::test(VentaForm::class)
+            ->assertSeeHtml('data-enter-guardar')
+            ->assertSeeHtml('enterEnMonto(index)')
+            ->assertSeeHtml('enterEnArticulo(index, item)');
+    }
 }

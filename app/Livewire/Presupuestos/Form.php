@@ -310,6 +310,12 @@ class Form extends Component
             return;
         }
 
+        // La fila en blanco del final (la que deja el Enter para seguir cargando) no se valida ni se graba.
+        $cargados = array_values(array_filter($this->items, fn ($i) => ! empty($i['articulo_id'])));
+        if ($cargados) {
+            $this->items = $cargados;
+        }
+
         $this->validate();
         $totales = $this->recalcularTotales();
         $netos   = $this->itemsEnNeto();

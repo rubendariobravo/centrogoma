@@ -202,7 +202,7 @@
                             class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
                         Cancelar
                     </button>
-                    <button wire:click="save"
+                    <button data-enter-guardar wire:click="save"
                             class="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors">
                         {{ $roleId ? 'Guardar cambios' : 'Crear rol' }}
                     </button>

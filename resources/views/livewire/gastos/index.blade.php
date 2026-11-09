@@ -237,7 +237,7 @@
                         class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="save" @disabled($cajas->isEmpty())
+                <button data-enter-guardar wire:click="save" @disabled($cajas->isEmpty())
                         class="flex-1 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     Guardar gasto
                 </button>
@@ -280,7 +280,7 @@
                     <input type="text" wire:model="categoriaNombre" wire:keydown.enter="guardarCategoria"
                            placeholder="{{ $categoriaEditId ? 'Nuevo nombre' : 'Nueva categoría' }}"
                            class="flex-1 px-3 py-2 text-sm border {{ $errors->has('categoriaNombre') ? 'border-red-400' : 'border-[#DDE1E7]' }} rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none">
-                    <button wire:click="guardarCategoria"
+                    <button data-enter-guardar wire:click="guardarCategoria"
                             class="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800">
                         {{ $categoriaEditId ? 'Guardar' : 'Agregar' }}
                     </button>

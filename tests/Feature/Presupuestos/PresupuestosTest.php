@@ -297,4 +297,16 @@ class PresupuestosTest extends TestCase
         $this->assertStringContainsString('$28.000,00', $html);
         $this->assertStringContainsString('Los precios incluyen IVA.', $html);
     }
+
+    public function test_la_fila_en_blanco_del_final_no_impide_guardar(): void
+    {
+        Livewire::test(PresupuestoForm::class)
+            ->call('seleccionarArticulo', 0, $this->guante->id)
+            ->call('addItem')                       // la que deja el Enter para seguir cargando
+            ->assertSeeHtml('data-enter-guardar')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertCount(1, Presupuesto::latest('id')->firstOrFail()->detalles);
+    }
 }

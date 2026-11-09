@@ -396,7 +396,7 @@
            class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-[#DDE1E7] rounded-lg hover:bg-[#E9ECF0] transition-colors">
             Cancelar
         </a>
-        <button wire:click="save" wire:loading.attr="disabled"
+        <button data-enter-guardar wire:click="save" wire:loading.attr="disabled"
                 class="px-5 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2">
             <svg wire:loading wire:target="save" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

@@ -26,7 +26,13 @@
                @focus="abierto = true" @input="abierto = true; i = 0"
                @keydown.arrow-down.prevent="i = Math.min(i + 1, $refs.lista ? $refs.lista.children.length - 1 : 0)"
                @keydown.arrow-up.prevent="i = Math.max(i - 1, 0)"
-               @keydown.enter.prevent="$refs.lista && $refs.lista.children[i] && $refs.lista.children[i].click()"
+               @keydown.enter.prevent="
+                   {{-- Enter elige el resaltado y sigue al próximo campo; sin lista abierta, sigue de largo. --}}
+                   const li = abierto && $refs.lista ? $refs.lista.children[i] : null;
+                   abierto = false;
+                   if (li) { $wire.seleccionarCliente(Number(li.dataset.id)).then(() => window.enterSiguiente?.($el)); }
+                   else { window.enterSiguiente?.($el); }
+               "
                placeholder="{{ $seleccionado ? $seleccionado->razon_social : $vacio }}"
                class="w-full pl-9 {{ $seleccionado ? 'pr-8 placeholder:text-gray-900' : 'pr-3 placeholder:text-gray-400' }} py-2 text-sm border {{ $error && $errors->has($error) ? 'border-red-400' : 'border-[#DDE1E7]' }} rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
         @if($seleccionado)
@@ -47,7 +53,7 @@
         @else
             <ul x-ref="lista">
                 @foreach($resultados as $idx => $c)
-                <li wire:key="bc-{{ $c->id }}"
+                <li wire:key="bc-{{ $c->id }}" data-id="{{ $c->id }}"
                     wire:click="seleccionarCliente({{ $c->id }})" @click="abierto = false"
                     @mouseenter="i = {{ $idx }}"
                     :class="i === {{ $idx }} ? 'bg-slate-100' : ''"

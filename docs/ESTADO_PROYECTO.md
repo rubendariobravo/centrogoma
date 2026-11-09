@@ -1,6 +1,6 @@
 # CentroGoma — Estado del proyecto
 
-**Última actualización:** 08/11/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 192 / 839 assertions, todos pasan
+**Última actualización:** 09/11/2026 · **Commit de referencia:** ver `git log -1` · **Tests:** 195 / 851 assertions, todos pasan
 
 Documento para retomar el trabajo en otra PC. Las reglas técnicas y la arquitectura están en `CLAUDE.md`;
 la instalación del servidor en `docs/DESPLIEGUE_VPS.md`. Acá: **qué está hecho, cómo armar el entorno y qué sigue.**
@@ -44,6 +44,7 @@ con tramos y overrides por cliente · Ventas, Recibos, Compras, Órdenes de Pago
 | Presupuestos | Revisados contra el Delphi (07/11/2026): duplicar (copia editable, "actualizar precios a la lista de hoy"), presupuesto sin cliente registrado, pasaje a venta con cantidades y precios pactados (el motor ya no los pisa; "Lista hoy" de referencia), totales iguales a ventas. Corregidos: editar bajaba el precio un 21% por guardado, buscador de artículos roto (`$wire`), precio de lista nunca aplicado (campos inexistentes del motor) |
 | Gestión de precios | Ajuste masivo con redondeo del final, filtros (rubro, marca, búsqueda, selección), modo "por costo y margen" (Delphi), vista previa e historial con deshacer · precio base siempre sincronizado (antes el ajuste lo dejaba viejo y una lista sin tramo cobraba el precio viejo) · grilla paginada que guarda solo lo cambiado · tramos actualizados en el lugar · precio sugerido, margen real y aviso de margen bajo al comprar |
 | Mejoras chicas del Delphi (08/11) | Tarjeta por marca (tabla `tarjetas`, obligatoria en ventas y recibos; la caja muestra lo cobrado por marca) y Mercado Pago · orden de compra en la venta (factura y ticket) · presupuesto con/sin IVA y leyenda opcional · resumen de CC por período y listado de saldos con pendientes, en PDF y Excel (clientes y proveedores) · lista de precios imprimible · agregar texto a la descripción de los seleccionados · el panel de CC recalcula el saldo corrido (la columna guardada podía estar desordenada) |
+| Enter en lugar de Tab (09/11) | Manejador global (`resources/js/enter-navegacion.js`) en todos los formularios y modales, con el botón de guardar como último paso (`data-enter-guardar`) · Ventas con el flujo de frango-saas (fila vacía → cobrar, monto que se completa, foco en Registrar) · Presupuestos: renglón nuevo con Enter y fila vacía → Guardar |
 | Producción | Desplegado 26/10/2026, HTTPS, datos del Delphi al corte **28/05/2026** (ensayo: se reimporta en la salida real) |
 
 **Bugs corregidos en el camino:** caja de ventas con pago mixto (un asiento por forma de pago) · percepciones IIBB/IVA
@@ -110,7 +111,7 @@ php artisan centrogoma:importar
 php artisan centrogoma:importar-saldos --corte=2026-05-28
 php artisan db:seed --class=UsuarioTestingSeeder     # usuario de pruebas (credenciales en el seeder)
 php artisan storage:link
-php artisan test                                     # 192 tests
+php artisan test                                     # 195 tests
 ```
 
 Virtual host `centrogoma.test` en Laragon apuntando a `public/`.
