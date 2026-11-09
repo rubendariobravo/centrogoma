@@ -124,7 +124,7 @@ class AnulacionesTest extends TestCase
     {
         $this->vender([
             ['forma_pago' => 'efectivo', 'monto' => 710],
-            ['forma_pago' => 'tarjeta', 'monto' => 500],
+            ['forma_pago' => 'tarjeta', 'tarjeta_id' => \App\Models\Tarjeta::where('nombre', 'Visa')->value('id'), 'monto' => 500],
         ]);
 
         $movs = MovimientoCaja::orderBy('id')->get();

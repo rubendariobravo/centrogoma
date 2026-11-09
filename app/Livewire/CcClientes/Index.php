@@ -2,8 +2,8 @@
 
 namespace App\Livewire\CcClientes;
 
-use App\Models\CcCliente;
 use App\Models\Cliente;
+use App\Services\CuentaCorriente\ResumenCuenta;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -50,19 +50,19 @@ class Index extends Component
         $this->saldoSeleccionado = (float) ($cliente?->saldo ?? 0);
         $this->clienteNombre     = $cliente?->razon_social ?? '';
 
-        $this->movimientos = CcCliente::where('cliente_id', $clienteId)
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->limit(50)
-            ->get()
+        // Saldo corrido recalculado en orden de fecha (como el resumen impreso): la columna `saldo` de cada
+        // asiento es la de la ficha al grabarlo y queda desordenada con comprobantes de fecha anterior.
+        $this->movimientos = (new ResumenCuenta('clientes'))->movimientos($clienteId)['movimientos']
+            ->reverse()
+            ->take(50)
             ->map(fn ($m) => [
-                'id'      => $m->id,
-                'fecha'   => $m->fecha->format('d/m/Y'),
-                'concepto'=> $m->concepto,
-                'debe'    => (float) $m->debe,
-                'haber'   => (float) $m->haber,
-                'saldo'   => (float) $m->saldo,
+                'fecha'   => $m['fecha']->format('d/m/Y'),
+                'concepto'=> $m['concepto'],
+                'debe'    => $m['debe'],
+                'haber'   => $m['haber'],
+                'saldo'   => $m['saldo'],
             ])
+            ->values()
             ->toArray();
     }
 

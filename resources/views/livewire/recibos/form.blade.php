@@ -84,7 +84,7 @@
                     <span class="text-gray-500">Fecha</span>
                     <span class="text-gray-900">{{ \Carbon\Carbon::parse($fecha)->format('d/m/Y') }}</span>
                     <span class="text-gray-500">Forma de pago</span>
-                    <span class="text-gray-900">{{ ucfirst($forma_pago) }}</span>
+                    <span class="text-gray-900">{{ $formasPago->firstWhere('codigo', $forma_pago)?->descripcion ?? ucfirst($forma_pago) }}@if($tarjeta_id) · {{ $tarjetas->firstWhere('id', $tarjeta_id)?->nombre }}@endif</span>
                     @if($referencia)
                     <span class="text-gray-500">Referencia</span>
                     <span class="text-gray-900">{{ $referencia }}</span>
@@ -291,14 +291,22 @@
                 {{-- Forma de pago --}}
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Forma de pago</label>
-                    <select wire:model="forma_pago"
+                    <select wire:model.live="forma_pago"
                             class="w-full text-sm border border-[#DDE1E7] rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                        <option value="efectivo">Efectivo</option>
-                        <option value="transferencia">Transferencia</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="otro">Otro</option>
+                        @foreach($formasPago as $fp)
+                            <option value="{{ $fp->codigo }}">{{ $fp->descripcion }}</option>
+                        @endforeach
                     </select>
+                    @if($forma_pago === 'tarjeta')
+                        <select wire:model="tarjeta_id"
+                                class="mt-2 w-full text-sm border border-[#DDE1E7] rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-900 outline-none bg-white @error('tarjeta_id') border-red-400 @enderror">
+                            <option value="">Tarjeta…</option>
+                            @foreach($tarjetas as $t)
+                                <option value="{{ $t->id }}">{{ $t->nombre }}</option>
+                            @endforeach
+                        </select>
+                        @error('tarjeta_id') <p class="mt-0.5 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @endif
                 </div>
 
                 {{-- Datos del cheque (visible solo si forma_pago = cheque) --}}

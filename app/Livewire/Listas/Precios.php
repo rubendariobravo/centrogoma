@@ -11,6 +11,7 @@ use App\Models\Marca;
 use App\Models\Rubro;
 use App\Services\Pricing\AjustePrecios;
 use App\Support\Pricing;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -31,6 +32,10 @@ class Precios extends Component
 
     /** Artículos marcados en el listado para ajustarlos juntos. */
     public array $seleccion = [];
+
+    // Agregar texto a la descripción de los seleccionados (Delphi: lo insertaba después de la primera palabra).
+    public string $textoDescripcion = '';
+    public string $textoPosicion    = 'despues_primera';   // inicio | despues_primera | final
 
     #[Computed]
     public function lista(): ListaPrecio
@@ -101,6 +106,43 @@ class Precios extends Component
         }
         $this->verNetos = ! $this->verNetos;
         $this->grillaPrecios = $this->grillaOriginal = $this->grillaIvas = [];
+    }
+
+    public function agregarTextoDescripcion(): void
+    {
+        $texto = trim(preg_replace('/\s+/', ' ', $this->textoDescripcion));
+        if ($texto === '') {
+            $this->addError('textoDescripcion', 'Escribí el texto a agregar.');
+            return;
+        }
+        if (empty($this->seleccion) || ! in_array($this->textoPosicion, ['inicio', 'despues_primera', 'final'], true)) {
+            return;
+        }
+
+        $largos = 0;
+        $cambiados = 0;
+        DB::transaction(function () use ($texto, &$largos, &$cambiados) {
+            foreach (Articulo::whereIn('id', array_map('intval', $this->seleccion))->get() as $art) {
+                $actual = trim((string) $art->descripcion);
+                $nueva = match ($this->textoPosicion) {
+                    'inicio' => "{$texto} {$actual}",
+                    'final'  => "{$actual} {$texto}",
+                    default  => str_contains($actual, ' ')
+                        ? preg_replace('/ /', " {$texto} ", $actual, 1)
+                        : "{$actual} {$texto}",
+                };
+                if (mb_strlen($nueva) > 250) {
+                    $largos++;
+                    continue;
+                }
+                $art->update(['descripcion' => $nueva]);   // con auditoría: se ve quién lo cambió
+                $cambiados++;
+            }
+        });
+
+        $this->textoDescripcion = '';
+        session()->flash('success', "Descripción actualizada en {$cambiados} artículos."
+            . ($largos ? " {$largos} no se cambiaron porque superaban los 250 caracteres." : ''));
     }
 
     public function limpiarSeleccion(): void

@@ -14,6 +14,7 @@ use App\Services\Pricing\PriceEngine;
 use App\Support\Pricing;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -43,6 +44,11 @@ class Form extends Component
     public string  $condicion_pago   = '';
     public string  $plazo_entrega    = '';
     public string  $observacion      = '';
+    // Cómo se cotiza (como el Delphi): precios finales o netos (+ IVA), y si el PDF lleva la leyenda.
+    // En pantalla el precio del renglón está en el mismo modo; en la BD siempre neto.
+    #[Locked]
+    public bool    $precios_con_iva  = true;   // se cambia con cambiarModoIva(), que convierte los precios
+    public bool    $leyenda_iva      = true;
 
     // Items
     public array $items = [];
@@ -119,6 +125,8 @@ class Form extends Component
         $this->condicion_pago  = $p->condicion_pago ?? '';
         $this->plazo_entrega   = $p->plazo_entrega ?? '';
         $this->observacion     = $p->observacion ?? '';
+        $this->precios_con_iva = (bool) $p->precios_con_iva;
+        $this->leyenda_iva     = (bool) $p->leyenda_iva;
         $this->clienteData     = $this->loadClienteData($p->cliente_id);
 
         $this->items = $p->detalles->map(fn ($d) => [
@@ -126,8 +134,8 @@ class Form extends Component
             'descripcion'  => $d->descripcion ?? $d->articulo?->descripcion ?? '',
             'unidad_medida'=> $d->articulo?->unidad_medida ?? 'unidad',
             'cantidad'     => (float) $d->cantidad,
-            // Se guarda neto: en pantalla va el final que se cotizó.
-            'precio'       => Pricing::final((float) $d->precio_unitario, (float) $d->alicuota_iva),
+            // Se guarda neto: en pantalla va el precio que se cotizó (final, o neto si es "sin IVA").
+            'precio'       => $this->aPantalla((float) $d->precio_unitario, (float) $d->alicuota_iva),
             'alicuota_iva' => (float) $d->alicuota_iva,
             'descuento'    => (float) $d->descuento,
             'subtotal'     => (float) $d->subtotal,
@@ -228,18 +236,48 @@ class Form extends Component
                 forzarListaId: $this->lista_precio_id,
             );
             $resultado = app(PriceEngine::class)->cotizar($req);
-            return Pricing::final($resultado->precioUnitario, $resultado->alicuotaIva);
+            return $this->aPantalla($resultado->precioUnitario, $resultado->alicuotaIva);
         } catch (\Throwable) {
-            // Sin tramo en la lista: precio base del artículo (neto) llevado a final.
-            return Pricing::final((float) $art->precio_unitario, (float) $art->alicuota_iva);
+            // Sin tramo en la lista: precio base del artículo (neto).
+            return $this->aPantalla((float) $art->precio_unitario, (float) $art->alicuota_iva);
         }
+    }
+
+    /** Neto de la BD → precio en pantalla: final con IVA, o el neto a 2 decimales si se cotiza sin IVA. */
+    private function aPantalla(float $neto, float $iva): float
+    {
+        return $this->precios_con_iva ? Pricing::final($neto, $iva) : round($neto, 2);
+    }
+
+    /** Precio en pantalla → neto con 4 decimales. */
+    private function aNeto(float $precio, float $iva): float
+    {
+        return $this->precios_con_iva ? Pricing::neto($precio, $iva) : round($precio, 4);
+    }
+
+    /** Al cambiar de modo, los precios tipeados pasan al otro (final ↔ neto) sin cambiar lo cotizado. */
+    public function cambiarModoIva(bool $conIva): void
+    {
+        if ($conIva === $this->precios_con_iva) {
+            return;
+        }
+        $this->precios_con_iva = $conIva;
+
+        foreach ($this->items as $i => $item) {
+            $iva    = (float) ($item['alicuota_iva'] ?? 21);
+            $precio = (float) ($item['precio'] ?? 0);
+            $this->items[$i]['precio'] = $conIva
+                ? Pricing::final($precio, $iva)
+                : round(Pricing::neto($precio, $iva), 2);
+        }
+        $this->recalcularTotales();
     }
 
     /** Renglones con el precio en NETO (4 decimales), como los espera el cálculo de ventas. */
     private function itemsEnNeto(): array
     {
         return array_map(fn ($item) => [
-            'precio'       => Pricing::neto((float) ($item['precio'] ?? 0), (float) ($item['alicuota_iva'] ?? 21)),
+            'precio'       => $this->aNeto((float) ($item['precio'] ?? 0), (float) ($item['alicuota_iva'] ?? 21)),
             'cantidad'     => (float) ($item['cantidad'] ?? 0),
             'alicuota_iva' => (float) ($item['alicuota_iva'] ?? 21),
             'descuento'    => (float) ($item['descuento'] ?? 0),
@@ -294,6 +332,8 @@ class Form extends Component
             'estado'          => $this->estado,
             'condicion_pago'  => $this->condicion_pago ?: null,
             'plazo_entrega'   => $this->plazo_entrega ?: null,
+            'precios_con_iva' => $this->precios_con_iva,
+            'leyenda_iva'     => $this->leyenda_iva,
             'observacion'     => $this->observacion ?: null,
         ];
 

@@ -64,7 +64,7 @@ class Index extends Component
     public function render()
     {
         $recibos = Recibo::query()
-            ->with(['cliente', 'user'])
+            ->with(['cliente', 'user', 'tarjeta'])
             ->when($this->search, fn ($q) => $q->whereHas('cliente', fn ($c) =>
                 $c->where('razon_social', 'like', "%{$this->search}%")
                   ->orWhere('nombre_fantasia', 'like', "%{$this->search}%")

@@ -36,12 +36,12 @@ brecha.
 | Precio modificable en la venta (flag por producto `modifica_precio`, 1.568 artículos) | diario | Precio editable en el renglón (`precio_manual`) para todos | ✅ (sin flag por artículo) |
 | Venta por unidad / por metro (`unitario`, `metraje`) | medio | `tipo_venta` CAJA/PESO + `unidad_medida` | 🟡 verificar con los artículos por metro |
 | Pagos mixtos por venta | diario | Pagos múltiples por venta, CC por el saldo | ✅ |
-| Tarjeta **por marca** (Visa, Naranja, Master, débito…) | 1.193/año | Una sola forma "Tarjeta" | 🟡 falta la marca (sirve para conciliar liquidaciones) |
-| Mercado Pago como forma de pago | 201/año | No está en `formas_pago` (sembrar) | 🟡 |
+| Tarjeta **por marca** (Visa, Naranja, Master, débito…) | 1.193/año | Forma "Tarjeta" + marca obligatoria (16 marcas del Delphi) en ventas y recibos; la caja muestra lo cobrado por marca | ✅ (08/11) |
+| Mercado Pago como forma de pago | 201/año | Forma de pago `mercado_pago` | ✅ (08/11) |
 | **Impresora fiscal** (ticket/factura, Reporte X y Z, cancelar ticket, datos de configuración) | 10.487/año | No existe; un navegador no maneja el controlador fiscal | ❌ ver §3 |
 | **Factura electrónica AFIP** (CAE, A/B, FCE MiPyME, reimprimir FE) | 1.628/año | Pendiente (pantalla preparada, `cae` en ventas) | ❌ **crítico** |
 | **Nota de crédito** (fiscal y electrónica) | 97/año | No existe: hoy se anula la venta | ❌ va con AFIP |
-| Orden de compra del cliente en la factura | 206/año | No hay campo | ❌ menor (agregar campo) |
+| Orden de compra del cliente en la factura | 206/año | Campo en la venta, impreso en factura y ticket | ✅ (08/11) |
 | Listado de ventas, impresión detallada / totales | diario | `/ventas` + PDF A4 / ticket 72 mm | ✅ |
 | "Suspender factura" (marca la venta como pendiente de facturar) | ? | No existe | ❓ preguntar si se usa |
 | Cambiar la forma de pago de una venta ya hecha | ? | No existe (hay que anular y rehacer) | 🟡 preguntar frecuencia |
@@ -57,7 +57,7 @@ brecha.
 | Presupuesto sin cliente registrado | 41% | Cliente opcional + nombre a mano | ✅ (07/11) |
 | "Modificar" = duplicar y ajustar | diario | Botón "Duplicar" (copia editable, cualquier estado) + "actualizar precios a la lista de hoy" | ✅ (07/11) |
 | Imprimir / PDF | diario | `PresupuestoController::pdf()` | ✅ |
-| "Incluye IVA" / "Sin leyenda" (cómo se muestran los precios) | 276 sin IVA | No existe la opción | ❌ |
+| "Incluye IVA" / "Sin leyenda" (cómo se muestran los precios) | 276 sin IVA | Precios con IVA / sin IVA (+ IVA) en el form y el PDF, y leyenda opcional | ✅ (08/11) |
 | **Expresar en USD** | 51/año (la marca del Delphi está invertida: verificar) | No existe moneda | ❌ va con el tema de artículos en dólares |
 | Convertir en venta | 0 en el Delphi; requisito del negocio | Carga cantidades y precios del presupuesto (sin repreciar), ajustable, aviso si venció | ✅ (07/11) |
 
@@ -69,8 +69,8 @@ brecha.
 | Costo + margen → precio | diario | `precio_costo`, `margen`, tramos por lista | ✅ |
 | Modificar precios de la selección (%) | periódico | Ajuste masivo por precio o por costo × margen, con redondeo, filtros (rubro, marca, búsqueda, selección), vista previa y deshacer + Excel + grilla | ✅ (07/11) |
 | Precio sugerido por costo y margen | diario | En la ficha y el listado, con margen real y aviso al comprar | ✅ (07/11) |
-| Agregar texto a la descripción de la selección | ocasional | No existe | ❌ menor |
-| Imprimir lista de precios | periódico | Exportar Excel por lista | 🟡 sin PDF imprimible |
+| Agregar texto a la descripción de la selección | ocasional | En `/listas-precios/{lista}/precios`, sobre los marcados (después de la 1ª palabra, al principio o al final) | ✅ (08/11) |
+| Imprimir lista de precios | periódico | Exportar Excel + lista imprimible por rubro (filtros o seleccionados, con tramos) | ✅ (08/11) |
 | Búsqueda por código de barras | ? | No hay campo de barras | ❓ preguntar |
 | Artículos en dólares (~1.258 con precio < $100) | diario | Se cobran como pesos | ❌ **decidir** (cotización o moneda por artículo) |
 | Stock | no se lleva | Se descuenta y queda negativo | ➖ apagar o esconder (decisión pendiente) |
@@ -80,10 +80,10 @@ brecha.
 | Función del Delphi | Uso | Sistema nuevo | Estado |
 |---|---|---|---|
 | ABM de clientes, condición de IVA, tipo de documento | diario | `/clientes` + buscador server-side | ✅ |
-| Cuenta corriente por cliente, imprimir cuenta | diario | `/cc-clientes` | 🟡 falta imprimir/exportar el resumen |
+| Cuenta corriente por cliente, imprimir cuenta | diario | `/cc-clientes` + resumen por período en PDF/Excel con pendientes | ✅ (08/11) |
 | Registrar pagos (efectivo, cheque, "caja blanca") | diario | Recibos con imputación a facturas | ✅ |
 | "Factura pagada" (marca manual) | diario | El recibo cancela la factura | ✅ (reemplazado) |
-| Listado de saldos de CC / facturas pendientes por cliente | periódico | Saldos en el listado; Dashboard "A cobrar" y mayores deudores | 🟡 falta el listado imprimible de pendientes |
+| Listado de saldos de CC / facturas pendientes por cliente | periódico | Listado de saldos con sus comprobantes pendientes y días (PDF/Excel) | ✅ (08/11) |
 | Saldo inicial | una vez | `centrogoma:importar-saldos` | ✅ |
 
 ### Compras y proveedores
@@ -95,7 +95,7 @@ brecha.
 | **Nota de crédito de compra** | 17/año | No hay tipo de comprobante en compras | ❌ |
 | Libro **IVA Compras** + "fecha contable" (período de imputación) | mensual | No existe; compras no guarda punto de venta, percepciones ni período | ❌ |
 | Modificar tipo de factura | ocasional | Se edita la letra | ✅ |
-| CC proveedores, registrar pagos, exportar a Excel | semanal | `/cc-proveedores` + Órdenes de pago | 🟡 falta exportar |
+| CC proveedores, registrar pagos, exportar a Excel | semanal | `/cc-proveedores` + Órdenes de pago + resumen y saldos en PDF/Excel | ✅ (08/11) |
 
 ### Caja, bancos y cheques
 
@@ -136,13 +136,9 @@ Necesarias para el primer cierre de mes:
 6. **Libro IVA Compras** con fecha contable, y **nota de crédito de compra** (agrega a compras: tipo de
    comprobante, punto de venta y período).
 
-Mejoras de uso diario (chicas):
-
-7. Tarjeta por marca y Mercado Pago como formas de pago.
-8. Presupuesto: "precios con/sin IVA" y "sin leyenda".
-9. Orden de compra del cliente en la venta.
-10. Imprimir/exportar la cuenta corriente (clientes y proveedores) y el listado de facturas pendientes.
-11. Lista de precios imprimible (PDF) y "agregar texto a la descripción" de la selección.
+Mejoras de uso diario (chicas): **hechas el 08/11/2026** — tarjeta por marca y Mercado Pago, presupuesto con/sin IVA
+y sin leyenda, orden de compra en la venta, resumen de CC y listado de saldos con pendientes (PDF/Excel), lista de
+precios imprimible y agregar texto a la descripción.
 
 A confirmar con el negocio: "suspender factura", cambiar la forma de pago de una venta ya hecha, código de
 barras, venta por metro.

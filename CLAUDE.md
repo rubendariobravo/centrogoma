@@ -47,7 +47,7 @@ echo 'OK: #'.\$u->id;
 # Symlink de storage (una vez por entorno)
 php artisan storage:link
 
-# Correr tests (176 tests, 728 assertions — todos pasan)
+# Correr tests (192 tests, 839 assertions — todos pasan)
 php artisan test
 
 # Filtrar suites específicas
@@ -276,6 +276,7 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 | `GET /listas-precios/{lista}/edit` | `Listas\Form` | `listas-precios.edit` |
 | `GET /listas-precios/{lista}/precios` | `Listas\Precios` | `listas-precios.precios` |
 | `GET /listas-precios/{lista}/exportar-precios` | `ListasController::exportarPrecios()` | `listas-precios.exportar` |
+| `GET /listas-precios/{lista}/imprimir` | `ListasController::imprimirPrecios()` (HTML para imprimir/guardar PDF) | `listas-precios.imprimir` |
 | **Caja y Finanzas** | | |
 | `GET /cajas` | `Cajas\Index` | `cajas` |
 | `GET /cajas/{caja}` | `Cajas\Show` | `cajas.show` |
@@ -284,6 +285,8 @@ Todas las rutas bajo `middleware(['auth', 'verified'])`.
 | `GET /cheques` | `Cheques\Index` | `cheques` |
 | `GET /cc-clientes` | `CcClientes\Index` | `cc-clientes` |
 | `GET /cc-proveedores` | `CcProveedores\Index` | `cc-proveedores` |
+| `GET /cuenta-corriente/{tipo}/{id}/resumen` | `CuentaCorrienteController::resumen()` (`?desde&hasta&formato=pdf\|xlsx`) | `cc.resumen` |
+| `GET /cuenta-corriente/{tipo}/saldos` | `CuentaCorrienteController::saldos()` (`?filtro=deudores\|a_favor\|todos`) | `cc.saldos` |
 | **Logística** | | |
 | `GET /remitos` | `Remitos\Index` | `remitos` |
 | `GET /empleados` | `Empleados\Index` | `empleados` |
@@ -346,7 +349,11 @@ Compras **no** admite cheque como forma de pago: se carga en CC y se paga con un
   `precio_costo` (si `ajuste_automatico`) y CC proveedor, o egreso de caja si es de contado;
   `revertir()` lo deshace (no revierte costo). `Compras\Form` registra y procesa en una transacción;
   `Compras\Index` anula con motivo (avisa si hay OPs aplicadas: lo pagado queda como crédito).
-- Formas de pago: tabla `formas_pago` (`FormaPago::esCuentaCorriente()`, `esEfectivo()`, `activosParaSelect()`).
+- Formas de pago: tabla `formas_pago` (`FormaPago::esCuentaCorriente()`, `esEfectivo()`, `activosParaSelect()`); Ventas y
+  Recibos validan contra ella (no hay listas fijas). **Tarjeta:** la marca (`tarjetas`, 16 del Delphi) es obligatoria y va
+  en `tarjeta_id` del pago, del recibo y del movimiento de caja; `/cajas/{id}` muestra lo cobrado por medio y marca.
+- **Cuenta corriente impresa:** `App\Services\CuentaCorriente\ResumenCuenta` (saldo corrido recalculado por fecha,
+  pendientes, saldos) para el PDF/Excel y para el panel de `/cc-clientes` y `/cc-proveedores`.
 - **Ventas en caja:** un `MovimientoCaja` por cada forma de pago usada (+ uno con `forma_pago=cuenta_corriente`
   por el saldo a crédito). Nunca un único asiento por el total: rompe el arqueo de efectivo en pagos mixtos.
 
@@ -631,7 +638,7 @@ Todas las variables en tabla `variable_entorno` vía `VariableEntorno::get/set`.
 tests/Unit/Pricing/PriceEngineTest.php          — 15 unit tests
 tests/Feature/Ventas/FormPriceEngineTest.php    — 7 feature tests
 tests/Feature/Listas/ListasCrudTest.php         — 9 feature tests
-tests/Feature/Listas/AjustePreciosTest.php      — 11 tests (redondeo, vista previa, historial y deshacer, filtros, por costo, precio base, grilla, tramos en el lugar, margen)
+tests/Feature/Listas/AjustePreciosTest.php      — 13 tests (redondeo, vista previa, historial y deshacer, filtros, por costo, precio base, grilla, tramos en el lugar, margen)
 tests/Feature/Clientes/ClienteOverridesTest.php — 6 feature tests
 tests/Feature/Compras/CompraServiceTest.php     — 7 feature tests (CC, contado, anulación)
 tests/Feature/Caja/                             — 23 tests (CajaService, transferencias, detalle de caja, gastos, categorías, bancos)
@@ -641,12 +648,14 @@ tests/Feature/Clientes/BuscadorClienteTest.php  — 9 tests (búsqueda, selecci�
 tests/Feature/Cheques/ChequeLifecycleTest.php   — 12 tests (portados de avícola: ciclo de vida, alta, filtros, orden)
 tests/Feature/Empleados/AnticipoMultiPagoTest.php — 11 tests (portados de avícola: multi-medio, cuadre, editar/rechazar/eliminar revierten caja)
 tests/Feature/Ventas/RegistrarVentaTotalesTest.php — 5 tests (precio redondo exacto, total recalculado en servidor, percepciones de la BD, rollback)
-tests/Feature/Presupuestos/PresupuestosTest.php — 10 tests (reabrir sin perder precio, sin cliente, duplicar, pasar a venta con precio pactado y ajustes, vencido)
+tests/Feature/Presupuestos/PresupuestosTest.php — 12 tests (reabrir sin perder precio, sin cliente, duplicar, pasar a venta con precio pactado y ajustes, vencido)
 tests/Feature/Estadisticas/EstadisticasTest.php — 5 tests (sin saldos iniciales, anticipos como sueldos, buscador, permiso, Dashboard)
+tests/Feature/Ventas/FormasPagoTarjetaTest.php  — 6 tests (marca de tarjeta en pago/recibo/caja, Mercado Pago, OC, cobrado por marca)
+tests/Feature/CuentaCorriente/ResumenCuentaTest.php — 6 tests (saldo corrido en orden de fecha, pendientes, saldos, PDF/Excel)
 tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redirect login)
 ```
 
-**Total: 176 tests, 728 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
+**Total: 192 tests, 839 assertions — todos pasan.** Tests usan `RefreshDatabase` contra `centrogoma_test` (puerto/usuario del `.env`). La conexión legacy de los tests apunta a `centrogoma_legacy_test` (vacía; cada test arma sus tablas Delphi) — nunca a la BD Delphi real.
 
 ---
 
@@ -675,6 +684,8 @@ tests/Feature/ExampleTest.php                   — 1 smoke test (GET / → redi
 | `2026_10_31_000001..2` | `anticipo_empleados` + `anticipo_pagos` (líneas de pago por caja) |
 | `2026_11_07_000002_create_ajustes_precios_tables` | Historial de ajustes masivos de precios (`ajustes_precios`, `ajuste_precio_items`) |
 | `2026_11_07_000001_presupuestos_sin_cliente` | `presupuestos.cliente_id` opcional + `cliente_nombre` |
+| `2026_11_08_000001_tarjetas_mercado_pago_y_orden_compra` | `tarjetas` + `tarjeta_id` en pagos/recibos/caja, `forma_pago` enum→string, Mercado Pago, `ventas.orden_compra` |
+| `2026_11_08_000002_presupuestos_opciones_iva` | `presupuestos.precios_con_iva` y `leyenda_iva` |
 | `2026_10_31_000003_precios_netos_con_4_decimales` | `articulo_precios.precio` y `cliente_precios.precio_especial` a `decimal(15,4)`; recupera el neto de 4 decimales de los tramos importados sin editar |
 
 ---

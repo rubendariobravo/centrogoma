@@ -106,6 +106,21 @@
         @endif
     </div>
 
+    {{-- Cobrado por medio: tarjeta por marca, para conciliar las liquidaciones --}}
+    @if($cobrosPorMedio->isNotEmpty())
+    <div class="bg-white rounded-xl border border-[#DDE1E7] p-4 mb-6">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cobrado por medio <span class="normal-case font-normal text-gray-400">(ventas y recibos, sin cta. cte.)</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1.5 text-sm">
+            @foreach($cobrosPorMedio as $medio => $c)
+                <div class="flex justify-between border-b border-dashed border-gray-100 py-1">
+                    <span class="text-gray-700">{{ $medio }} <span class="text-xs text-gray-400">({{ $c['cantidad'] }})</span></span>
+                    <span class="font-medium text-gray-900 tabular-nums">${{ number_format($c['total'], 2, ',', '.') }}</span>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     @if($caja->observacion)
     <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-5 text-sm text-amber-800">
         <span class="font-medium">Observación:</span> {{ $caja->observacion }}
@@ -368,8 +383,8 @@
                         <td class="px-4 py-3 text-gray-700">
                             {{ $pago->venta?->cliente?->razon_social ?? ($pago->venta?->cliente_vtadiaria ?: 'Consumidor Final') }}
                         </td>
-                        <td class="px-4 py-3 text-gray-600 capitalize">
-                            {{ $pago->forma_pago ?? '—' }}
+                        <td class="px-4 py-3 text-gray-600">
+                            {{ $pago->etiqueta }}
                         </td>
                         <td class="px-4 py-3 text-gray-500 text-xs">
                             {{ $pago->referencia ?: '—' }}
@@ -432,6 +447,7 @@
                             'efectivo'         => 'bg-emerald-100 text-emerald-700',
                             'transferencia'    => 'bg-sky-100 text-sky-700',
                             'tarjeta'          => 'bg-violet-100 text-violet-700',
+                            'mercado_pago'     => 'bg-cyan-100 text-cyan-700',
                             'cheque'           => 'bg-orange-100 text-orange-700',
                             'cuenta_corriente' => 'bg-amber-100 text-amber-700',
                             default            => 'bg-gray-100 text-gray-500',
@@ -452,8 +468,8 @@
                         </td>
                         <td class="px-4 py-3">
                             @if($mov->forma_pago)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $fpBadge }} capitalize">
-                                    {{ str_replace('_', ' ', $mov->forma_pago) }}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $fpBadge }}">
+                                    {{ $labelsFormas[$mov->forma_pago] ?? str_replace('_', ' ', $mov->forma_pago) }}@if($mov->tarjeta) · {{ $mov->tarjeta->nombre }}@endif
                                 </span>
                             @else
                                 <span class="text-gray-400">—</span>
@@ -647,8 +663,8 @@
                         <td class="px-4 py-3 text-gray-700">{{ $mov->descripcion ?: '—' }}</td>
                         <td class="px-4 py-3">
                             @if($mov->forma_pago)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $fpBadge }} capitalize">
-                                    {{ str_replace('_', ' ', $mov->forma_pago) }}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $fpBadge }}">
+                                    {{ $labelsFormas[$mov->forma_pago] ?? str_replace('_', ' ', $mov->forma_pago) }}@if($mov->tarjeta) · {{ $mov->tarjeta->nombre }}@endif
                                 </span>
                             @else
                                 <span class="text-gray-400">—</span>

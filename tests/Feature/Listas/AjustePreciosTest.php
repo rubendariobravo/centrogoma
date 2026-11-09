@@ -240,4 +240,44 @@ class AjustePreciosTest extends TestCase
         $this->assertCount(1, $bajos);
         $this->assertSame(77.1, $bajos->first()['margen_real']);
     }
+
+    public function test_lista_imprimible_por_rubro_con_filtros_y_tramos(): void
+    {
+        ArticuloPrecio::create(['articulo_id' => $this->manguera->id, 'lista_precio_id' => $this->minorista->id,
+            'cantidad_desde' => 10, 'cantidad_hasta' => null, 'precio' => Pricing::neto(1350, 21), 'activo' => true, 'orden' => 1]);
+
+        $this->get(route('listas-precios.imprimir', ['lista' => $this->minorista->id]))
+            ->assertOk()
+            ->assertSeeInOrder(['Guantes', 'Guante latex', '$9,60', 'Mangueras', 'Acople rapido', '$1.400,00', 'Manguera 1/2', 'desde 10: $1.350,00', '$1.500,00'])
+            ->assertSee('precios finales, con IVA');
+
+        $this->get(route('listas-precios.imprimir', ['lista' => $this->minorista->id, 'rubro' => $this->guantes->id, 'verNetos' => 1]))
+            ->assertOk()->assertSee('Guante latex')->assertDontSee('Acople rapido')
+            ->assertSee('$7,93');   // 9,60 / 1,21
+
+        // Mayorista sin tramos: imprime el precio base, que es el que cobra el motor.
+        $this->get(route('listas-precios.imprimir', ['lista' => $this->mayorista->id, 'ids' => $this->acople->id]))
+            ->assertOk()->assertSee('$1.400,00')->assertDontSee('Guante latex')->assertSee('1 artículos seleccionados');
+    }
+
+    public function test_agregar_texto_a_la_descripcion_de_los_seleccionados(): void
+    {
+        $this->precios()
+            ->set('seleccion', [(string) $this->manguera->id, (string) $this->acople->id])
+            ->set('textoDescripcion', '  FANA ')
+            ->call('agregarTextoDescripcion')
+            ->assertSee('Descripción actualizada en 2 artículos.');
+
+        // Como el Delphi: después de la primera palabra.
+        $this->assertSame('Manguera FANA 1/2', $this->manguera->fresh()->descripcion);
+        $this->assertSame('Acople FANA rapido', $this->acople->fresh()->descripcion);
+        $this->assertSame('Guante latex', $this->guante->fresh()->descripcion);
+
+        $this->precios()->set('seleccion', [(string) $this->guante->id])
+            ->set('textoDescripcion', 'x100')->set('textoPosicion', 'final')->call('agregarTextoDescripcion');
+        $this->assertSame('Guante latex x100', $this->guante->fresh()->descripcion);
+
+        $this->precios()->set('seleccion', [(string) $this->guante->id])->set('textoDescripcion', ' ')
+            ->call('agregarTextoDescripcion')->assertHasErrors('textoDescripcion');
+    }
 }

@@ -8,9 +8,11 @@ use App\Models\CcCliente;
 use App\Models\Banco;
 use App\Models\Cliente;
 use App\Models\DetVenta;
+use App\Models\FormaPago;
 use App\Models\ListaPrecio;
 use App\Models\MovimientoArticulo;
 use App\Models\Presupuesto;
+use App\Models\Tarjeta;
 use App\Models\Venta;
 use App\Models\VariableEntorno;
 use App\Services\Caja\CajaService;
@@ -35,6 +37,7 @@ class Form extends Component
     public string  $letra             = 'B';
     public string  $forma_pago        = 'efectivo';
     public string  $observacion       = '';
+    public string  $orden_compra      = '';   // OC del cliente, se imprime en la factura
 
     // Datos del cliente (para percepciones, se actualizan al cambiar cliente)
     public array $clienteData = [
@@ -181,7 +184,7 @@ class Form extends Component
 
     private function cargarVenta(int $id): void
     {
-        $v = Venta::with(['detalles.articulo', 'cliente', 'pagos'])->findOrFail($id);
+        $v = Venta::with(['detalles.articulo', 'cliente', 'pagos.tarjeta'])->findOrFail($id);
         $this->ventaId          = $v->id;
         $this->cliente_id       = $v->cliente_id;
         $this->fecha            = $v->fecha->toDateString();
@@ -189,6 +192,7 @@ class Form extends Component
         $this->letra            = $v->letra_comprobante ?? 'B';
         $this->forma_pago       = $v->pagos->first()?->forma_pago ?? 'efectivo';
         $this->observacion      = $v->observacion ?? '';
+        $this->orden_compra     = $v->orden_compra ?? '';
         $this->readOnly         = true;
 
         if ($v->cliente) {
@@ -212,6 +216,7 @@ class Form extends Component
 
         $this->pagosVenta = $v->pagos->map(fn ($p) => [
             'forma_pago' => $p->forma_pago,
+            'tarjeta'    => $p->tarjeta?->nombre,
             'monto'      => (float) $p->monto,
             'fecha'      => $p->fecha?->toDateString(),
         ])->toArray();
@@ -639,6 +644,7 @@ class Form extends Component
         $pagos = collect($payload['pagos'] ?? [])
             ->map(fn ($p) => [
                 'forma_pago' => $p['forma_pago'] ?? 'efectivo',
+                'tarjeta_id' => ($p['forma_pago'] ?? '') === 'tarjeta' && ! empty($p['tarjeta_id']) ? (int) $p['tarjeta_id'] : null,
                 'monto' => (float) ($p['monto'] ?? 0),
                 'cheque' => $p['cheque'] ?? null,
             ])
@@ -648,6 +654,7 @@ class Form extends Component
         $this->validate([
             'fecha'           => 'required|date',
             'tipo_comprobante'=> 'required|in:factura,nota_credito,nota_debito',
+            'orden_compra'    => 'nullable|string|max:100',
             'items'           => 'required|array|min:1',
             'items.*.articulo_id' => 'required|exists:articulos,id',
             'items.*.cantidad'    => 'required|numeric|min:0.001',
@@ -746,8 +753,16 @@ class Form extends Component
             return;
         }
 
-        if ($pagos->contains(fn ($p) => ! in_array($p['forma_pago'], ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'cuenta_corriente', 'otro'], true))) {
+        $codigos = FormaPago::codigosActivos();
+        if ($pagos->contains(fn ($p) => ! in_array($p['forma_pago'], $codigos, true))) {
             $this->addError('pagos', 'Una de las formas de pago no es válida.');
+            return;
+        }
+
+        // Tarjeta: la marca es obligatoria (con ella se concilian las liquidaciones).
+        $tarjetas = Tarjeta::idsActivos();
+        if ($pagos->contains(fn ($p) => $p['forma_pago'] === 'tarjeta' && ! in_array($p['tarjeta_id'], $tarjetas, true))) {
+            $this->addError('pagos', 'Elegí la tarjeta (Visa, Naranja…) de cada pago con tarjeta.');
             return;
         }
 
@@ -801,6 +816,7 @@ class Form extends Component
                 'letra_comprobante'=> $this->letra,
                 'estado'           => $saldo > 0 ? 'P' : 'C',
                 'observacion'      => $this->observacion ?: null,
+                'orden_compra'     => trim($this->orden_compra) ?: null,
             ]);
 
             // Detalles + movimientos de stock
@@ -855,6 +871,7 @@ class Form extends Component
                     'caja_id'    => $this->cajaId,
                     'fecha'      => $this->fecha,
                     'forma_pago' => $pago['forma_pago'],
+                    'tarjeta_id' => $pago['tarjeta_id'],
                     'monto'      => $pago['monto'],
                 ]);
 
@@ -900,7 +917,7 @@ class Form extends Component
                         continue;
                     }
                     $cajaService->registrarMovimiento($caja, 'ingreso', 'venta', (float) $pago['monto'],
-                        [...$opts, 'forma_pago' => $pago['forma_pago']]);
+                        [...$opts, 'forma_pago' => $pago['forma_pago'], 'tarjeta_id' => $pago['tarjeta_id']]);
                 }
 
                 // Lo que quedó a crédito entra al libro con forma cuenta_corriente: suma a
@@ -1043,6 +1060,8 @@ class Form extends Component
             'listasPrecios'     => $listasPrecios,
             'listaActual'       => $listaActual,
             'bancos'            => Banco::where('activo', true)->orderBy('descripcion')->get(),
+            'formasPago'        => FormaPago::activosParaSelect(),
+            'tarjetas'          => Tarjeta::activasParaSelect(),
         ]);
     }
 }

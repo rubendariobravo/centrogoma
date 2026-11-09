@@ -249,4 +249,52 @@ class PresupuestosTest extends TestCase
             ->set('search', 'Belgrano')
             ->assertSee('Obra calle Belgrano');
     }
+    public function test_presupuesto_sin_iva_cotiza_netos_y_se_imprime_asi(): void
+    {
+        $lw = Livewire::test(PresupuestoForm::class)
+            ->call('seleccionarArticulo', 0, $this->guante->id)
+            ->assertSet('items.0.precio', 15000.0)
+            ->call('cambiarModoIva', false)
+            ->assertSet('items.0.precio', 12396.69)
+            ->call('cambiarModoIva', false)                 // mismo modo: no vuelve a convertir
+            ->assertSet('items.0.precio', 12396.69)
+            ->set('items.0.cantidad', 2)
+            ->set('items.0.precio', 10000)                  // pactado: $10.000 + IVA
+            ->set('leyenda_iva', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $p = Presupuesto::latest('id')->firstOrFail();
+        $this->assertFalse($p->precios_con_iva);
+        $this->assertEquals(10000.0, (float) $p->detalles->first()->precio_unitario);
+        $this->assertEquals(24200.0, $p->total);
+
+        // Al reabrir sigue en netos; al pasar a "con IVA" muestra el final.
+        Livewire::test(PresupuestoForm::class, ['presupuesto' => $p->id])
+            ->assertSet('precios_con_iva', false)
+            ->assertSet('items.0.precio', 10000.0)
+            ->call('cambiarModoIva', true)
+            ->assertSet('items.0.precio', 12100.0)
+            ->assertSet('total', 24200.0);
+
+        $html = view('presupuestos.pdf', ['presupuesto' => $p->load('detalles.articulo'), 'empresa' => ['nombre' => 'CG']])->render();
+        $this->assertStringContainsString('$10.000,00', $html);
+        $this->assertStringContainsString('TOTAL s/IVA', $html);
+        $this->assertStringContainsString('$20.000,00', $html);
+        $this->assertStringContainsString('Los precios no incluyen IVA.', $html);
+
+        $p->update(['leyenda_iva' => false]);
+        $html = view('presupuestos.pdf', ['presupuesto' => $p->fresh()->load('detalles.articulo'), 'empresa' => ['nombre' => 'CG']])->render();
+        $this->assertStringNotContainsString('incluyen IVA', $html);
+    }
+
+    public function test_presupuesto_con_iva_imprime_el_final_y_la_venta_no_cambia(): void
+    {
+        $p = $this->presupuestoPactado($this->cliente);
+        $html = view('presupuestos.pdf', ['presupuesto' => $p->load('detalles.articulo'), 'empresa' => ['nombre' => 'CG']])->render();
+
+        $this->assertStringContainsString('$14.000,00', $html);
+        $this->assertStringContainsString('$28.000,00', $html);
+        $this->assertStringContainsString('Los precios incluyen IVA.', $html);
+    }
 }

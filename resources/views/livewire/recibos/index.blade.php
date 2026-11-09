@@ -97,7 +97,7 @@
                                 {{ $recibo->forma_pago === 'tarjeta' ? 'bg-orange-100 text-orange-700' : '' }}
                                 {{ !in_array($recibo->forma_pago, ['efectivo','transferencia','cheque','tarjeta']) ? 'bg-gray-100 text-gray-600' : '' }}
                             ">
-                                {{ ucfirst($recibo->forma_pago) }}
+                                {{ $recibo->tarjeta?->nombre ?? ucfirst(str_replace('_', ' ', $recibo->forma_pago)) }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-gray-500 text-xs">{{ $recibo->referencia ?? '—' }}</td>

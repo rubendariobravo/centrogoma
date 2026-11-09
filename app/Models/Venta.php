@@ -18,7 +18,7 @@ class Venta extends Model implements Auditable
         'nro_factura', 'letra_comprobante', 'tipo_cbte', 'pto_vta', 'cae', 'vto_cae',
         'estado', 'tipo', 'moneda', 'cotizacion', 'sucursal',
         'cliente_vtadiaria', 'dni_vtadiaria', 'domicilio_vtadiaria',
-        'tipo_comprobante', 'saldo_inicial', 'factura_original_id', 'observacion', 'totalanulado',
+        'tipo_comprobante', 'saldo_inicial', 'factura_original_id', 'observacion', 'orden_compra', 'totalanulado',
     ];
 
     protected $casts = [

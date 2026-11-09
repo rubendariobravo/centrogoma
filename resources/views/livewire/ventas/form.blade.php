@@ -375,12 +375,9 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                         :data-pago-row="index"
                                         data-pago-field="forma_pago"
                                         class="col-span-6 px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none bg-white">
-                                    <option value="efectivo">Efectivo</option>
-                                    <option value="transferencia">Transferencia</option>
-                                    <option value="tarjeta">Tarjeta</option>
-                                    <option value="cheque">Cheque</option>
-                                    <option value="cuenta_corriente">Cta. Cte.</option>
-                                    <option value="otro">Otro</option>
+                                    @foreach($formasPago as $fp)
+                                        <option value="{{ $fp->codigo }}">{{ $fp->descripcion }}</option>
+                                    @endforeach
                                 </select>
                                 <div class="col-span-5 relative">
                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -404,6 +401,20 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                                     </svg>
                                 </button>
                             </div>
+                            {{-- Marca de la tarjeta: con ella se concilian las liquidaciones --}}
+                            <template x-if="pago.forma_pago === 'tarjeta'">
+                                <div class="mt-1 grid grid-cols-12 gap-2">
+                                    <select x-model.number="pago.tarjeta_id"
+                                            data-pago-field="tarjeta"
+                                            :class="pago.tarjeta_id ? 'border-[#DDE1E7]' : 'border-amber-400 bg-amber-50'"
+                                            class="col-span-6 px-3 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-slate-900 outline-none bg-white">
+                                        <option value="">Tarjeta…</option>
+                                        @foreach($tarjetas as $t)
+                                            <option value="{{ $t->id }}">{{ $t->nombre }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </template>
                             {{-- Datos del cheque recibido --}}
                             <template x-if="pago.forma_pago === 'cheque'">
                                 <div class="mt-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -485,21 +496,14 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                 <div class="bg-white rounded-xl shadow-sm p-5">
                     <h3 class="text-sm font-semibold text-gray-900 mb-3">Pagos registrados</h3>
                     @php
-                        $formasPagoLabels = [
-                            'efectivo' => 'Efectivo',
-                            'transferencia' => 'Transferencia',
-                            'tarjeta' => 'Tarjeta',
-                            'cheque' => 'Cheque',
-                            'cuenta_corriente' => 'Cta. Cte.',
-                            'otro' => 'Otro',
-                        ];
+                        $formasPagoLabels = $formasPago->pluck('descripcion', 'codigo');
                     @endphp
                     @if(count($pagosVenta) > 0)
                         <div class="space-y-2">
                             @foreach($pagosVenta as $pago)
                                 <div class="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
                                     <div class="flex items-center gap-2">
-                                        <span class="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 rounded">{{ $formasPagoLabels[$pago['forma_pago']] ?? $pago['forma_pago'] }}</span>
+                                        <span class="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 rounded">{{ $formasPagoLabels[$pago['forma_pago']] ?? $pago['forma_pago'] }}@if(!empty($pago['tarjeta'])) · {{ $pago['tarjeta'] }}@endif</span>
                                         @if(!empty($pago['fecha']))
                                             <span class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($pago['fecha'])->format('d/m/Y') }}</span>
                                         @endif
@@ -533,6 +537,12 @@ window._initialDescuento = {{ Js::from($descuento_general ?: 0) }};
                 @endif
 
                 <div class="bg-white rounded-xl shadow-sm p-5">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Orden de compra del cliente</label>
+                    <input type="text" wire:model="orden_compra" maxlength="100"
+                           {{ $readOnly ? 'readonly' : '' }}
+                           class="w-full mb-3 px-3 py-2 text-sm border border-[#DDE1E7] rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
+                           placeholder="Nro. de OC (se imprime en la factura)">
+                    @error('orden_compra') <p class="-mt-2 mb-2 text-xs text-red-600">{{ $message }}</p> @enderror
                     <label class="block text-xs font-medium text-gray-600 mb-1">Observación</label>
                     <textarea wire:model="observacion" rows="2" maxlength="300"
                               {{ $readOnly ? 'readonly' : '' }}
@@ -624,7 +634,7 @@ function ventaForm(config) {
         clienteData: config.clienteData,
         descuentoGeneral: config.descuentoGeneral,
         articulosData: config.articulosData || [],
-        pagos: [{ forma_pago: 'efectivo', monto: '', _autoMonto: true, cheque: null }],
+        pagos: [{ forma_pago: 'efectivo', tarjeta_id: '', monto: '', _autoMonto: true, cheque: null }],
         wire: null,
 
         // Toggle de visualizacion de precios: false = ver finales (con IVA),
@@ -868,7 +878,7 @@ function ventaForm(config) {
         },
         addPago() {
             this.pagos.forEach(p => p._autoMonto = false);
-            this.pagos.push({ forma_pago: 'efectivo', monto: '', _autoMonto: false, cheque: null });
+            this.pagos.push({ forma_pago: 'efectivo', tarjeta_id: '', monto: '', _autoMonto: false, cheque: null });
         },
 
         removePago(index) {

@@ -101,6 +101,20 @@
                 </div>
             </div>
 
+            {{-- Cómo se cotiza (Delphi: "Incluye IVA" / "Sin leyenda") --}}
+            <div class="mt-3 pt-3 border-t border-gray-50 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                <div class="flex rounded-lg overflow-hidden border border-[#DDE1E7] text-xs">
+                    <button type="button" wire:click="cambiarModoIva(true)"
+                            class="px-3 py-1.5 {{ $precios_con_iva ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50' }}">Precios con IVA</button>
+                    <button type="button" wire:click="cambiarModoIva(false)"
+                            class="px-3 py-1.5 border-l border-[#DDE1E7] {{ ! $precios_con_iva ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50' }}">Precios sin IVA (+ IVA)</button>
+                </div>
+                <label class="inline-flex items-center gap-2 text-xs text-gray-600">
+                    <input type="checkbox" wire:model.live="leyenda_iva" class="rounded border-gray-300">
+                    Imprimir la leyenda "{{ $precios_con_iva ? 'Los precios incluyen IVA' : 'Los precios no incluyen IVA' }}"
+                </label>
+            </div>
+
             @if(! empty($clienteData['razon_social']))
             <div class="mt-3 pt-3 border-t border-gray-50 flex items-center gap-4 text-xs text-gray-500">
                 <span class="font-medium text-gray-700">{{ $clienteData['razon_social'] }}</span>
@@ -124,7 +138,7 @@
                             <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artículo</th>
                             <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Cantidad</th>
                             <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">UM</th>
-                            <th class="px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Precio final</th>
+                            <th class="px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">{{ $precios_con_iva ? 'Precio final' : 'Precio s/IVA' }}</th>
                             <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">IVA</th>
                             <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Desc.%</th>
                             <th class="px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Subtotal neto</th>

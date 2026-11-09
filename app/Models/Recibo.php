@@ -12,13 +12,18 @@ class Recibo extends Model implements Auditable
 
     protected $fillable = [
         'cliente_id', 'caja_id', 'user_id', 'nro_recibo', 'fecha',
-        'total', 'forma_pago', 'referencia', 'observacion', 'estado',
+        'total', 'forma_pago', 'tarjeta_id', 'referencia', 'observacion', 'estado',
     ];
 
     protected $casts = [
         'fecha' => 'date',
         'total' => 'decimal:2',
     ];
+
+    public function tarjeta()
+    {
+        return $this->belongsTo(Tarjeta::class);
+    }
 
     public function cliente()
     {

@@ -187,6 +187,7 @@ class Caja extends Model implements Auditable
             'otros_medios'       => round(
                 (float) ($ingresosPorMedio['transferencia'] ?? 0)
                 + (float) ($ingresosPorMedio['tarjeta'] ?? 0)
+                + (float) ($ingresosPorMedio['mercado_pago'] ?? 0)
                 + (float) ($ingresosPorMedio['cheque'] ?? 0),
                 2
             ),

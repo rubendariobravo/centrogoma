@@ -15,12 +15,14 @@ class Presupuesto extends Model implements Auditable
         'nro_presupuesto', 'fecha', 'fecha_vencimiento', 'dias_validez',
         'neto', 'neto_21', 'neto_10_5', 'monto_iva21', 'monto_iva10_5',
         'descuento', 'total', 'estado',
-        'condicion_pago', 'plazo_entrega', 'observacion', 'legacy_id',
+        'condicion_pago', 'plazo_entrega', 'precios_con_iva', 'leyenda_iva', 'observacion', 'legacy_id',
     ];
 
     protected $casts = [
         'fecha'            => 'date',
         'fecha_vencimiento'=> 'date',
+        'precios_con_iva'  => 'boolean',
+        'leyenda_iva'      => 'boolean',
         'neto'             => 'float',
         'neto_21'          => 'float',
         'neto_10_5'        => 'float',

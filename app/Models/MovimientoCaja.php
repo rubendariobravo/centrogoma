@@ -11,7 +11,7 @@ class MovimientoCaja extends Model
     protected $table = 'movimiento_cajas';
 
     protected $fillable = [
-        'caja_id', 'fecha', 'tipo', 'concepto', 'monto', 'forma_pago',
+        'caja_id', 'fecha', 'tipo', 'concepto', 'monto', 'forma_pago', 'tarjeta_id',
         'referencia_type', 'referencia_id', 'user_id',
         'categoria_gasto_id', 'cuenta_contable_id', 'descripcion',
     ];
@@ -20,6 +20,11 @@ class MovimientoCaja extends Model
         'fecha' => 'date',
         'monto' => 'decimal:2',
     ];
+
+    public function tarjeta(): BelongsTo
+    {
+        return $this->belongsTo(Tarjeta::class);
+    }
 
     public function caja(): BelongsTo
     {

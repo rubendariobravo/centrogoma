@@ -299,7 +299,7 @@
         @foreach($venta->pagos as $pago)
         <table class="pago-fila">
             <tr>
-                <td>{{ ucfirst(str_replace('_', ' ', $pago->forma_pago)) }}
+                <td>{{ $pago->etiqueta }}
                     @if($pago->referencia) ({{ $pago->referencia }}) @endif
                 </td>
                 <td class="right">${{ number_format($pago->monto, 2) }}</td>
@@ -315,6 +315,12 @@
             </tr>
         </table>
         @endif
+    </div>
+    @endif
+
+    @if($venta->orden_compra)
+    <div class="seccion">
+        <div class="fila" style="font-size:11px;">O.C.: {{ $venta->orden_compra }}</div>
     </div>
     @endif
 

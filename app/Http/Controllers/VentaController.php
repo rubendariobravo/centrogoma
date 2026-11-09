@@ -16,7 +16,7 @@ class VentaController extends Controller
      */
     public function imprimir(Venta $venta)
     {
-        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos']);
+        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos.tarjeta']);
         $saldoAnterior = $this->calcularSaldoAnterior($venta);
 
         $formato   = VariableEntorno::get('impresion_formato', 'ticket');
@@ -49,7 +49,7 @@ JS;
 
     public function generarPdf(Venta $venta)
     {
-        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos']);
+        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos.tarjeta']);
         $saldoAnterior = $this->calcularSaldoAnterior($venta);
 
         $pdf = Pdf::loadView('ventas.pdf', compact('venta', 'saldoAnterior'));
@@ -60,7 +60,7 @@ JS;
 
     public function generarTicket(Venta $venta)
     {
-        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos']);
+        $venta->load(['cliente.tipoIva', 'detalles.articulo', 'pagos.tarjeta']);
         $saldoAnterior = $this->calcularSaldoAnterior($venta);
 
         $altura = 520 + ($venta->detalles->count() * 30) + ($venta->pagos->count() * 15);

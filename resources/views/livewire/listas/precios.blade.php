@@ -71,6 +71,20 @@
             Exportar Excel
         </a>
 
+        {{-- Imprimir (HTML para imprimir o guardar como PDF) --}}
+        <a href="{{ route('listas-precios.imprimir', array_filter([
+                'lista'     => $lista->id,
+                'verNetos'  => $verNetos ? 1 : null,
+                'rubro'     => $filterRubro ?: null,
+                'search'    => $search ?: null,
+                'ids'       => $seleccion ? implode(',', $seleccion) : null,
+            ])) }}" target="_blank"
+           title="{{ $seleccion ? 'Imprime solo los artículos seleccionados' : 'Imprime con los filtros actuales' }}"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-white border-[#DDE1E7] text-gray-700 hover:bg-[#E9ECF0] transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Imprimir lista{{ $seleccion ? ' (' . count($seleccion) . ')' : '' }}
+        </a>
+
         {{-- Importar Excel --}}
         <button wire:click="$set('showImportPanel', {{ $showImportPanel ? 'false' : 'true' }})" type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
@@ -343,10 +357,24 @@
             </select>
         </div>
         @if(! empty($seleccion))
-        <p class="mt-3 text-xs text-gray-600">
-            {{ count($seleccion) }} {{ count($seleccion) === 1 ? 'artículo seleccionado' : 'artículos seleccionados' }} para el ajuste masivo.
-            <button wire:click="limpiarSeleccion" type="button" class="ml-1 text-slate-700 underline hover:no-underline">Limpiar selección</button>
-        </p>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+            <span>{{ count($seleccion) }} {{ count($seleccion) === 1 ? 'artículo seleccionado' : 'artículos seleccionados' }}.</span>
+            <button wire:click="limpiarSeleccion" type="button" class="text-slate-700 underline hover:no-underline">Limpiar selección</button>
+            <span class="mx-2 text-gray-300">|</span>
+            <span>Agregar a la descripción:</span>
+            <input wire:model="textoDescripcion" type="text" maxlength="60" placeholder="Ej: FANA"
+                   wire:keydown.enter="agregarTextoDescripcion"
+                   class="px-2 py-1 border border-[#DDE1E7] rounded-md text-xs w-36 @error('textoDescripcion') border-red-400 @enderror">
+            <select wire:model="textoPosicion" class="px-2 py-1 border border-[#DDE1E7] rounded-md text-xs bg-white">
+                <option value="despues_primera">después de la 1ª palabra</option>
+                <option value="inicio">al principio</option>
+                <option value="final">al final</option>
+            </select>
+            <button wire:click="agregarTextoDescripcion" type="button"
+                    wire:confirm="¿Agregar el texto a la descripción de {{ count($seleccion) }} artículos?"
+                    class="px-2.5 py-1 rounded-md bg-slate-800 text-white hover:bg-slate-700">Aplicar</button>
+            @error('textoDescripcion') <span class="text-red-600">{{ $message }}</span> @enderror
+        </div>
         @endif
     </div>
 

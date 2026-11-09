@@ -116,6 +116,7 @@
     </style>
 </head>
 <body>
+@php $conIva = (bool) $presupuesto->precios_con_iva; @endphp
 <div class="container">
 
     {{-- Encabezado --}}
@@ -211,8 +212,9 @@
         <tbody>
             @foreach($presupuesto->detalles as $i => $det)
             @php
-                $precioFinal = $det->precio_unitario * (1 + $det->alicuota_iva / 100);
-                $subtotalFinal = $det->subtotal * (1 + $det->alicuota_iva / 100);
+                // Con IVA: final unitario redondeado y el subtotal final grabado; sin IVA: los netos.
+                $precioUnit = $conIva ? \App\Support\Pricing::final((float) $det->precio_unitario, (float) $det->alicuota_iva) : (float) $det->precio_unitario;
+                $subtotalLinea = $conIva ? (float) ($det->subtotal_iva ?: $det->subtotal * (1 + $det->alicuota_iva / 100)) : (float) $det->subtotal;
             @endphp
             <tr>
                 <td class="text-center">{{ $i + 1 }}</td>
@@ -224,9 +226,9 @@
                 </td>
                 <td class="text-center">{{ number_format($det->cantidad, 2, ',', '.') }}</td>
                 <td class="text-center">{{ $det->articulo?->unidad_medida ?? 'unidad' }}</td>
-                <td class="text-right">${{ number_format($precioFinal, 2, ',', '.') }}</td>
+                <td class="text-right">${{ number_format($precioUnit, 2, ',', '.') }}</td>
                 <td class="text-center">{{ $det->descuento > 0 ? number_format($det->descuento, 1).'%' : '—' }}</td>
-                <td class="text-right">${{ number_format($subtotalFinal, 2, ',', '.') }}</td>
+                <td class="text-right">${{ number_format($subtotalLinea, 2, ',', '.') }}</td>
             </tr>
             @endforeach
         </tbody>
@@ -235,6 +237,12 @@
     {{-- Totales --}}
     <div class="clearfix">
         <table class="totals-table">
+            @if(! $conIva)
+            <tr class="total-row">
+                <td>TOTAL s/IVA</td>
+                <td class="text-right">${{ number_format($presupuesto->neto, 2, ',', '.') }}</td>
+            </tr>
+            @else
             @if($presupuesto->neto_21 > 0)
             <tr>
                 <td style="color:#666">Neto gravado 21%</td>
@@ -259,6 +267,7 @@
                 <td>TOTAL</td>
                 <td class="text-right">${{ number_format($presupuesto->total, 2, ',', '.') }}</td>
             </tr>
+            @endif
         </table>
     </div>
 
@@ -273,7 +282,8 @@
     {{-- Pie --}}
     <div class="footer">
         <p>Presupuesto válido por {{ $presupuesto->dias_validez }} días desde la fecha de emisión.
-        Los precios incluyen IVA. Este presupuesto no constituye una factura.</p>
+        @if($presupuesto->leyenda_iva) {{ $conIva ? 'Los precios incluyen IVA.' : 'Los precios no incluyen IVA.' }} @endif
+        Este presupuesto no constituye una factura.</p>
         @if(! empty($empresa['nombre']))
             <p>{{ $empresa['nombre'] }}
             @if(! empty($empresa['cuit'])) — CUIT: {{ $empresa['cuit'] }} @endif

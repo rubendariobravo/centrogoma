@@ -5,6 +5,9 @@ namespace App\Livewire\Recibos;
 use App\Models\Caja;
 use App\Models\CcCliente;
 use App\Models\Banco;
+use App\Models\FormaPago;
+use App\Models\Tarjeta;
+use Illuminate\Validation\Rule;
 use App\Models\Cliente;
 use App\Models\Recibo;
 use App\Models\ReciboDetalle;
@@ -26,6 +29,7 @@ class Form extends Component
     public string  $fecha       = '';
     public float   $total       = 0;   // solo para modo readOnly
     public string  $forma_pago  = 'efectivo';
+    public ?int    $tarjeta_id  = null;   // marca, si forma_pago = tarjeta
     public string  $referencia  = '';
     public string  $observacion = '';
 
@@ -74,12 +78,13 @@ class Form extends Component
 
     private function cargarRecibo(int $id): void
     {
-        $r = Recibo::with(['cliente', 'detalles.venta'])->findOrFail($id);
+        $r = Recibo::with(['cliente', 'detalles.venta', 'tarjeta'])->findOrFail($id);
         $this->reciboId    = $r->id;
         $this->cliente_id  = $r->cliente_id;
         $this->fecha       = $r->fecha->toDateString();
         $this->total       = (float) $r->total;
         $this->forma_pago  = $r->forma_pago;
+        $this->tarjeta_id  = $r->tarjeta_id;
         $this->referencia  = $r->referencia ?? '';
         $this->observacion = $r->observacion ?? '';
         $this->readOnly    = true;
@@ -140,8 +145,12 @@ class Form extends Component
         $rules = [
             'cliente_id' => 'required|exists:clientes,id',
             'fecha'      => 'required|date',
-            'forma_pago' => 'required|in:efectivo,transferencia,cheque,tarjeta,otro',
+            // Cualquier forma activa salvo cuenta corriente: un recibo cobra deuda, no la genera.
+            'forma_pago' => ['required', Rule::in(FormaPago::activos()->where('es_cuenta_corriente', false)->pluck('codigo')->all())],
         ];
+        if ($this->forma_pago === 'tarjeta') {
+            $rules['tarjeta_id'] = ['required', Rule::in(Tarjeta::idsActivos())];
+        }
         if ($this->forma_pago === 'cheque') {
             $rules['cheque_banco_id']        = 'required|exists:bancos,id';
             $rules['cheque_nro']             = 'required|string|max:30';
@@ -150,6 +159,7 @@ class Form extends Component
         }
         $this->validate($rules, [
             'cliente_id.required'       => 'Seleccione un cliente.',
+            'tarjeta_id.required'       => 'Elegí la tarjeta.',
             'cheque_banco_id.required'        => 'Seleccione el banco del cheque.',
             'cheque_nro.required'             => 'Indique el número del cheque.',
             'cheque_librador_nombre.required' => 'Indique el librador del cheque.',
@@ -199,6 +209,7 @@ class Form extends Component
             'fecha'       => $this->fecha,
             'total'       => $total,
             'forma_pago'  => $this->forma_pago,
+            'tarjeta_id'  => $this->forma_pago === 'tarjeta' ? $this->tarjeta_id : null,
             'referencia'  => $this->referencia ?: null,
             'observacion' => $this->observacion ?: null,
             'estado'      => 'C',
@@ -245,6 +256,7 @@ class Form extends Component
                 $caja, 'ingreso', 'cobro', $total,
                 [
                     'forma_pago'      => $this->forma_pago,
+                    'tarjeta_id'      => $this->forma_pago === 'tarjeta' ? $this->tarjeta_id : null,
                     'referencia_type' => Recibo::class,
                     'referencia_id'   => $recibo->id,
                     'descripcion'     => "Recibo #{$nroRecibo}",
@@ -282,7 +294,9 @@ class Form extends Component
     public function render()
     {
         return view('livewire.recibos.form', [
-            'bancos'   => Banco::where('activo', true)->orderBy('descripcion')->get(),
+            'bancos'     => Banco::where('activo', true)->orderBy('descripcion')->get(),
+            'formasPago' => FormaPago::activos()->where('es_cuenta_corriente', false)->get(['codigo', 'descripcion']),
+            'tarjetas'   => Tarjeta::activasParaSelect(),
         ]);
     }
 }

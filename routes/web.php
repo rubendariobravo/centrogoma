@@ -39,6 +39,7 @@ use App\Livewire\Config\Index as ConfigIndex;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\ListasController;
 use App\Http\Controllers\PresupuestoController;
+use App\Http\Controllers\CuentaCorrienteController;
 use App\Livewire\Presupuestos\Index as PresupuestosIndex;
 use App\Livewire\Presupuestos\Form as PresupuestosForm;
 use App\Livewire\Cheques\Index as ChequesIndex;
@@ -98,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('listas-precios/{lista}/edit', ListasForm::class)->name('listas-precios.edit');
     Route::get('listas-precios/{lista}/precios', ListasPrecios::class)->name('listas-precios.precios');
     Route::get('listas-precios/{lista}/exportar-precios', [ListasController::class, 'exportarPrecios'])->name('listas-precios.exportar');
+    Route::get('listas-precios/{lista}/imprimir', [ListasController::class, 'imprimirPrecios'])->name('listas-precios.imprimir');
 
     // Caja y Finanzas
     Route::get('cajas', CajasIndex::class)->name('cajas');
@@ -107,6 +109,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('cheques', ChequesIndex::class)->name('cheques');
     Route::get('cc-clientes', CcClientesIndex::class)->name('cc-clientes');
     Route::get('cc-proveedores', CcProveedoresIndex::class)->name('cc-proveedores');
+    Route::get('cuenta-corriente/{tipo}/saldos', [CuentaCorrienteController::class, 'saldos'])
+        ->whereIn('tipo', ['clientes', 'proveedores'])->name('cc.saldos');
+    Route::get('cuenta-corriente/{tipo}/{id}/resumen', [CuentaCorrienteController::class, 'resumen'])
+        ->whereIn('tipo', ['clientes', 'proveedores'])->whereNumber('id')->name('cc.resumen');
 
     // Logística
     Route::get('remitos', RemitosIndex::class)->name('remitos');

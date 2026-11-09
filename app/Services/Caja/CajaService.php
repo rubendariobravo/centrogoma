@@ -39,6 +39,7 @@ class CajaService
             'concepto'           => $concepto,
             'monto'              => $monto,
             'forma_pago'         => $opts['forma_pago'] ?? null,
+            'tarjeta_id'         => $opts['tarjeta_id'] ?? null,
             'referencia_type'    => $opts['referencia_type'] ?? null,
             'referencia_id'      => $opts['referencia_id'] ?? null,
             'user_id'            => $opts['user_id'] ?? auth()->id(),

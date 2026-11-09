@@ -381,7 +381,7 @@
             <tbody>
                 @foreach($venta->pagos as $pago)
                 <tr>
-                    <td>{{ ucfirst(str_replace('_', ' ', $pago->forma_pago)) }}</td>
+                    <td>{{ $pago->etiqueta }}</td>
                     <td>{{ $pago->referencia ?? '—' }}</td>
                     <td class="text-right">${{ number_format($pago->monto, 2) }}</td>
                 </tr>
@@ -401,6 +401,12 @@
                 @endif
             </tfoot>
         </table>
+    </div>
+    @endif
+
+    @if($venta->orden_compra)
+    <div class="obs-box" style="clear:both; margin-top:10px;">
+        <strong>Orden de compra:</strong> {{ $venta->orden_compra }}
     </div>
     @endif
 
